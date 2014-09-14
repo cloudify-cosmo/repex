@@ -1,0 +1,20 @@
+variables:
+    version: 1.1
+
+files:
+    -   path: tests/resources/mock_file.txt
+        replace: version='\d+\.\d+(\.)?(\w\d)?'
+        with: "version='{{ .version }}'"
+        validate_before: true
+        validate_after: true
+        must_include:
+    # -   path: tests/resources/mock_setup.py
+    #     replace: version='\d+\.\d+(\.)?(\w\d)?'
+    #     with: "version='{{ .version }}'"
+    #     validate_before: true
+    #     validate_after: true
+    # -   path: tests/resources/mock_blueprint.yaml
+    #     replace: http://www.getcloudify.org/spec/cloudify/\d+\.\d+(\.)?(\w\d)?/types.yaml
+    #     with: "http://www.getcloudify.org/spec/cloudify/{{ .version }}/types.yaml"
+    #     validate_before: true
+    #     validate_after: true

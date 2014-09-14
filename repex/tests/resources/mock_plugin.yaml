@@ -1,0 +1,8 @@
+##################################################################################
+# Cloudify Fabric built in types and plugins definitions.
+##################################################################################
+plugins:
+    fabric:
+        derived_from: cloudify.plugins.manager_plugin
+        properties:
+            url: https://github.com/cloudify-cosmo/cloudify-fabric-plugin/archive/1.1.zip

@@ -78,61 +78,80 @@ def import_config(config_file):
 def iterate(configfile=None, variables=None, verbose=False):
     """iterates over all files in `configfile`
     """
-    _set_global_verbosity_level(verbose)
     config = import_config(configfile)
     try:
         files = config['files']
     except ValueError:
         raise RepexError('no files configured')
     for file in files:
-        p = Repex(
-            file['path'],
-            file['replace'],
-            file['with'],
-        )
-        validate_before = file.get(
-            'validate_before', DEFAULT_VALIDATE_BEFORE)
-        must_include = file.get('must_include', DEFAULT_MUST_INCLUDE)
-        if validate_before:
-            if not p.validate_before(must_include):
-                raise RuntimeError('prevalidation failed')
-        p.replace(variables)
+        handle_file(file, variables, verbose)
+
+
+def handle_file(file, variables, verbose=False):
+    p = Repex(
+        file['path'],
+        file['replace'],
+        file['with'],
+        verbose
+    )
+    validate_before = file.get(
+        'validate_before', DEFAULT_VALIDATE_BEFORE)
+    must_include = file.get('must_include', DEFAULT_MUST_INCLUDE)
+    if validate_before:
+        if not p.validate_before(must_include):
+            raise RuntimeError('prevalidation failed')
+    p.replace(variables)
 
 
 class Repex():
-    def __init__(self, path, pattern, rwith):
+    def __init__(self, path, pattern, rwith, verbose=False):
         self.path = path
         self.pattern = pattern
         self.rwith = rwith
+        _set_global_verbosity_level(verbose)
 
     def validate_before(self, must_include):
-        # first, see if the pattern is even in the file.
-        with open(self.path) as f:
+
+        def verify_includes(must_include):
+            # first, see if the pattern is even in the file.
             repex_lgr.debug('looking for required strings')
             if must_include:
                 # iterate over the strings and verify that
                 # they exist in the file
+                included = True
                 for string in must_include:
-                    if not any(re.search(string, line) for line in f):
-                        repex_lgr.error(
-                            'required strings not found in {0}'.format(
-                                self.path))
-                        return False
+                    with open(self.path) as f:
+                        if not any(re.search(r'{0}'.format(
+                                string), line) for line in f):
+                            repex_lgr.error(
+                                'required string {0} not found in {1}'.format(
+                                    string, self.path))
+                            included = False
+                if not included:
+                    return False
+                return True
+
+        def validate_pattern(pattern):
             repex_lgr.debug('looking for pattern to replace')
             # verify that the pattern you're looking to replace
             # exists in the file
-            if not any(re.search(r'{0}'.format(
-                    self.pattern), line) for line in f):
-                # pattern does not occur in file so we are done.
-                repex_lgr.warning('pattern {0} not found in {1}'.format(
+            with open(self.path) as f:
+                if not any(re.search(r'{0}'.format(
+                        self.pattern), line) for line in f):
+                    # pattern does not occur in file so we are done.
+                    repex_lgr.warning('pattern {0} not found in {1}'.format(
+                        self.pattern, self.path))
+                    return False
+                repex_lgr.debug('pattern {0} found in {1}'.format(
                     self.pattern, self.path))
-                return False
-            repex_lgr.debug('pattern {0} found in {1}'.format(
-                self.pattern, self.path))
-            return True
+                return True
+
+        if verify_includes(must_include):
+            return validate_pattern()
+        return False
 
     def replace(self, v):
-        # pattern is in the file, so perform replace operation.
+        # iterate over all variables
         for var, value in v.items():
             repex_lgr.debug('variable {0}: {1}'.format(var, value))
             # replace variable in pattern
@@ -150,9 +169,6 @@ class Repex():
                     # replace in the file
                     out.write(re.sub(pattern, rwith, line))
                 os.rename(tmpf, self.path)
-
-    def validate_after(self, method=None):
-        method(self.path)
 
 
 class RepexError(Exception):

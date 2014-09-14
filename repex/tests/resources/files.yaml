@@ -2,19 +2,34 @@ variables:
     version: 1.1
 
 files:
-    -   path: tests/resources/mock_file.txt
-        replace: version='\d+\.\d+(\.)?(\w\d)?'
-        with: "version='{{ .version }}'"
-        validate_before: true
-        validate_after: true
-        must_include:
-    # -   path: tests/resources/mock_setup.py
-    #     replace: version='\d+\.\d+(\.)?(\w\d)?'
+    # -   type: text
+    #     path: tests/resources/mock_file.txt
+    #     replace: version='\d+\.\d+(\.\w\d)?'
     #     with: "version='{{ .version }}'"
     #     validate_before: true
-    #     validate_after: true
-    # -   path: tests/resources/mock_blueprint.yaml
-    #     replace: http://www.getcloudify.org/spec/cloudify/\d+\.\d+(\.)?(\w\d)?/types.yaml
+    #     must_include:
+    #         - included mock test
+    # -   type: setup.py
+    #     path: tests/resources/mock_setup.py
+    #     replace: version='\d+\.\d+(\.\w\d)?'
+    #     with: "version='{{ .version }}'"
+    #     validate_before: true
+    # -   type: blueprint.yaml
+    #     path: tests/resources/mock_blueprint.yaml
+    #     replace: http://www.getcloudify.org/spec/cloudify/\d+\.\d+(\.\w\d)?/types.yaml
     #     with: "http://www.getcloudify.org/spec/cloudify/{{ .version }}/types.yaml"
     #     validate_before: true
-    #     validate_after: true
+    # -   type: plugin.yaml
+    #     path: tests/resources/mock_plugin.yaml
+    #     replace: http://www.getcloudify.org/spec/cloudify/\d+\.\d+(\.\w\d)?/types.yaml
+    #     with: "http://www.getcloudify.org/spec/cloudify/{{ .version }}/types.yaml"
+    #     validate_before: true
+    -   type: VERSION
+        path: tests/resources/mock_VERSION
+        replace: 3.1.0-m2
+        with: "3.1.0-m3"
+        validate_before: true
+        must_include:
+            - date
+            - commit
+            - version

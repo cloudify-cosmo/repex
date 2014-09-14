@@ -1,4 +1,16 @@
+#######
+# Cloudify Hello World blueprint.
+#
+# The blueprint describes an OpenStack vm created using Cloudify's OpenStack plugin
+# and simple web server started using Cloudify's script plugin.
+# In addition, an OpenStack floating ip and security group are created and associated with the created vm.
+#
+
 imports:
     - http://www.getcloudify.org/spec/cloudify/3.1/types.yaml
-    - http://www.getcloudify.org/spec/openstack-plugin/1.1/plugin.yaml
-    - http://www.getcloudify.org/spec/bash-plugin/1.1/plugin.yaml
+    - mock_plugin.yaml
+
+node_templates:
+
+    node:
+        type: cloudify.types.base

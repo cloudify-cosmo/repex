@@ -1,6 +1,6 @@
 import logger
 import logging
-# import os
+import os
 import re
 import yaml
 import shutil
@@ -53,6 +53,24 @@ def import_config(config_file):
     #     raise RuntimeError('bad config file')
 
 
+def get_all_files(ftype, path, base_dir):
+    dirs = [
+        x for x in os.listdir(base_dir)
+        if os.path.isdir(
+            os.path.join(base_dir, x)) and re.search(
+            r'{0}'.format(path), os.path.join(base_dir, x))
+    ]
+    repex_lgr.info('dirs: {0}'.format(os.listdir(base_dir)))
+    target_files = []
+    for directory in dirs:
+        for root, dirs, files in os.walk(os.path.join(base_dir, directory)):
+            for f in files:
+                if f == ftype:
+                    target_files.append(os.path.join(root, f))
+    repex_lgr.info('files: {0}'.format(target_files))
+    return target_files
+
+
 def iterate(configfile, variables=None, verbose=False):
     """iterates over all files in `configfile`
 
@@ -60,13 +78,33 @@ def iterate(configfile, variables=None, verbose=False):
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
+    _set_global_verbosity_level(verbose)
     config = import_config(configfile)
     try:
-        files = config['files']
+        paths = config['paths']
     except TypeError:
-        raise RepexError('no files configured')
-    for f in files:
-        handle_file(f, variables, verbose)
+        raise RepexError('no paths configured')
+
+    for path in paths:
+        handle_path(path, variables, verbose=False)
+
+
+def handle_path(p, variables, verbose=False):
+    _set_global_verbosity_level(verbose)
+    if os.path.isfile(p['path']):
+        if p.get('base_directory'):
+            repex_lgr.info(
+                'base_directory is irrelevant when dealing with single files')
+        handle_file(p, variables, verbose)
+    else:
+        if p.get('to_file'):
+            raise RepexError(
+                '"to_file" requires explicit "path"')
+        files = get_all_files(p['type'], p['path'], p['base_directory'])
+        repex_lgr.info(files)
+        for f in files:
+            p['path'] = f
+            handle_file(p, variables, verbose)
 
 
 def handle_file(f, variables=None, verbose=False):
@@ -79,6 +117,7 @@ def handle_file(f, variables=None, verbose=False):
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
+    _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
     if type(variables) is not dict:
         raise RuntimeError('variables must be of type dict')

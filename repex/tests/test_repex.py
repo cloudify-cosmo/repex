@@ -22,6 +22,7 @@ from repex.repex import RepexError
 from repex.repex import iterate
 from repex.repex import Repex
 from repex.repex import handle_file
+from repex.repex import get_all_files
 
 import unittest
 import os
@@ -32,8 +33,11 @@ import logging
 TEST_DIR = '{0}/test_dir'.format(os.path.expanduser("~"))
 TEST_FILE_NAME = 'test_file'
 TEST_FILE = TEST_DIR + '/' + TEST_FILE_NAME
-TEST_RESOURCES_DIR = 'repex/tests/resources'
+TEST_RESOURCES_DIR = 'repex/tests/resources/'
+TEST_RESOURCES_DIR_PATTERN = 'repex/tests/resource.*'
 MOCK_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_files.yaml')
+MOCK_CONFIG_MULTIPLE_FILES = os.path.join(TEST_RESOURCES_DIR,
+                                          'mock_multiple_files.yaml')
 MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_VERSION')
 BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
 EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
@@ -60,7 +64,7 @@ class TestBase(unittest.TestCase):
     def test_import_config_file(self):
         outcome = import_config(MOCK_CONFIG_FILE)
         self.assertEquals(type(outcome), dict)
-        self.assertIn('files', outcome.keys())
+        self.assertIn('paths', outcome.keys())
 
     def test_fail_import_config_file(self):
         try:
@@ -90,11 +94,19 @@ class TestBase(unittest.TestCase):
         try:
             iterate(EMPTY_CONFIG_FILE)
         except RepexError as ex:
-            self.assertEqual(str(ex), 'no files configured')
+            self.assertEqual(str(ex), 'no paths configured')
 
     def test_iterate(self):
         output_file = MOCK_TEST_FILE + '.test'
         iterate(MOCK_CONFIG_FILE)
+        with open(output_file) as f:
+            self.assertIn('{{ .version }}', f.read())
+        os.remove(output_file)
+
+    def test_iterate_with_vars(self):
+        output_file = MOCK_TEST_FILE + '.test'
+        v = {'version': '3.1.0-m3'}
+        iterate(MOCK_CONFIG_FILE, v)
         with open(output_file) as f:
             self.assertIn('3.1.0-m3', f.read())
         os.remove(output_file)
@@ -149,3 +161,21 @@ class TestBase(unittest.TestCase):
             handle_file(file, verbose=True)
         except RepexError as ex:
             self.assertEqual(str(ex), 'prevalidation failed')
+
+    def test_iterate_multiple_files(self):
+        v = {
+            'preversion': '3.1.0-m2',
+            'version': '3.1.0-m3'
+        }
+        iterate(MOCK_CONFIG_MULTIPLE_FILES, v)
+        files = get_all_files(
+            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
+        for fl in files:
+            with open(fl) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        v['preversion'] = '3.1.0-m3'
+        v['version'] = '3.1.0-m2'
+        iterate(MOCK_CONFIG_MULTIPLE_FILES, v)
+        for fl in files:
+            with open(fl) as f:
+                self.assertIn('3.1.0-m2', f.read())

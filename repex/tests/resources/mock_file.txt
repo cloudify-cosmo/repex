@@ -1,3 +1,0 @@
-included mock test
-this is the data for replacement: version='1.1'
-more: 1.1m4

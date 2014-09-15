@@ -25,9 +25,10 @@ files:
     #     with: "http://www.getcloudify.org/spec/cloudify/{{ .version }}/types.yaml"
     #     validate_before: true
     -   type: VERSION
-        path: tests/resources/mock_VERSION
+        path: repex/tests/resources/mock_VERSION
         replace: 3.1.0-m2
         with: "3.1.0-m3"
+        to_file: repex/tests/resources/mock_VERSION.test
         validate_before: true
         must_include:
             - date

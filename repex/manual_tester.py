@@ -14,7 +14,8 @@ def validate_blueprintyaml(blueprint_path):
 
 
 if __name__ == "__main__":
-    config = import_config(os.path.expanduser('tests/resources/files.yaml'))
+    config = import_config(os.path.expanduser(
+        'tests/resources/mock_files.yaml'))
 
     variables = config['variables']
     variables['version'] = '3.1'

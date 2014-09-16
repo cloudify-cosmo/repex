@@ -167,9 +167,8 @@ class Repex():
             """verifies that all required strings are in the file
             """
             # first, see if the pattern is even in the file.
-            repex_lgr.debug('looking for required strings')
-            repex_lgr.debug('must include is {0}'.format(must_include))
-
+            repex_lgr.debug('looking for required strings: {0}'.format(
+                must_include))
             # iterate over the strings and verify that
             # they exist in the file
             included = True
@@ -183,25 +182,24 @@ class Repex():
                         included = False
             if not included:
                 return False
+            repex_lgr.debug('required strings found')
             return True
 
         def validate_pattern():
             """verifies that the pattern exists
             """
-            repex_lgr.debug('looking for pattern to replace')
+            repex_lgr.debug('looking for pattern {0}'.format(self.pattern))
             # verify that the pattern you're looking to replace
             # exists in the file
             with open(self.path) as f:
                 content = f.read()
-                repex_lgr.info('file content is: {0}'.format(content))
-                repex_lgr.info('file is: {0}'.format(self.path))
                 if not re.search(r'{0}'.format(self.match), content):
                     repex_lgr.warning('match {0} not found in {1}'.format(
                         self.match, self.path))
                     return False
                 else:
                     m = re.findall(self.match, content)
-                    repex_lgr.info('matches are: {0}'.format(m))
+                    repex_lgr.debug('matches found: {0}'.format(m))
                     if not any(re.search(r'{0}'.format(
                             self.pattern), match) for match in m):
                         # pattern does not occur in file so we are done.
@@ -209,14 +207,14 @@ class Repex():
                             'pattern {0} not found in any matches'.format(
                                 self.pattern))
                         return False
-                    repex_lgr.debug(
-                        'pattern {0} found in one or more matches'.format(
-                            self.pattern))
+                    repex_lgr.debug('pattern found in one or more matches')
                 return True
 
         if must_include:
-            return verify_includes(must_include)
-        return validate_pattern()
+            if verify_includes(must_include):
+                return validate_pattern()
+            else:
+                return False
 
     def find_matches(self):
         """finds all matches of an expression in a file
@@ -247,15 +245,14 @@ class Repex():
         from a file with a specific value.
         """
         temp_file = self.path + ".tmp"
-        repex_lgr.info('{0}: replacing {1} with {2}'.format(
-            self.path, self.pattern, self.rwith))
-        repex_lgr.debug('matches are: {0}'.format(matches))
+        repex_lgr.debug('matches to replace: {0}'.format(matches))
         with open(self.path) as f:
             content = f.read()
         for m in matches:
             # replace pattern in match
             r = re.sub(self.pattern, self.rwith, m)
-            repex_lgr.info('replacing {0} with {1}'.format(m, r))
+            repex_lgr.info('replacing {0} with {1} in {2}'.format(
+                m, r, self.path))
             # then replace the previous match with the newly formatted one
             content = content.replace(m, r)
         with open(temp_file, "w") as out:

@@ -124,6 +124,7 @@ class TestBase(unittest.TestCase):
     def test_file_validation_failed(self):
         file = {
             'path': MOCK_TEST_FILE,
+            'match': 'MISSING_MATCH',
             'replace': 'MISSING_PATTERN',
             'with': '',
             'to_file': MOCK_TEST_FILE + '.test',
@@ -135,21 +136,23 @@ class TestBase(unittest.TestCase):
             self.assertEqual(str(ex), 'prevalidation failed')
 
     def test_file_no_permissions_to_write_to_file(self):
-        p = Repex(
-            MOCK_TEST_FILE,
-            '3.1.0-m2',
-            '3.1.0-m3',
-            '/mock.test'
-        )
+        file = {
+            'path': MOCK_TEST_FILE,
+            'match': '3.1.0-m2',
+            'replace': '3.1.0-m2',
+            'with': '3.1.0-m3',
+            'to_file': '/mock.test'
+        }
         try:
-            p.replace()
+            handle_file(file, verbose=True)
         except IOError as ex:
             self.assertIn('Permission denied', str(ex))
 
     def test_file_must_include_missing(self):
         file = {
             'path': MOCK_TEST_FILE,
-            'replace': '3.1.0-m2',
+            'match': '3.1.0-m2',
+            'replace': '3.1.0',
             'with': '',
             'to_file': MOCK_TEST_FILE + '.test',
             'validate_before': True,

@@ -5,7 +5,8 @@ paths:
     -   type: mock_VERSION
         path: repex/tests/resources/
         base_directory: repex/tests/resources/
-        replace: "{{ .preversion }}"
+        match: '"version": ".*"'
+        replace: \d+\.\d+(\.\d+)?(-\w\d+)?
         with: "{{ .version }}"
         validate_before: true
         must_include:

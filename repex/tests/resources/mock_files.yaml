@@ -4,6 +4,7 @@ variables:
 paths:
     -   type: mock_VERSION
         path: repex/tests/resources/mock_VERSION
+        match: '"version": "3.1.0-m2"'
         replace: 3.1.0-m2
         with: "{{ .version }}"
         to_file: repex/tests/resources/mock_VERSION.test

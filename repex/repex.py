@@ -136,6 +136,7 @@ def handle_file(f, variables=None, verbose=False):
         raise RuntimeError('variables must be of type dict')
     p = Repex(
         f['path'],
+        f['match'],
         f['replace'],
         f['with'],
         f.get('to_file', False),
@@ -145,12 +146,16 @@ def handle_file(f, variables=None, verbose=False):
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
     if validate_before and not p.validate_before(must_include):
             raise RepexError('prevalidation failed')
-    p.replace(variables)
+    matches = p.find_matches()
+    p.extend_vars(variables)
+    p.replace(matches)
 
 
 class Repex():
-    def __init__(self, path, pattern, rwith, to_file=False, verbose=False):
+    def __init__(self, path, match, pattern, rwith,
+                 to_file=False, verbose=False):
         self.path = path
+        self.match = match
         self.pattern = pattern
         self.rwith = rwith
         self.to_file = to_file
@@ -159,6 +164,8 @@ class Repex():
     def validate_before(self, must_include=[]):
 
         def verify_includes(must_include):
+            """verifies that all required strings are in the file
+            """
             # first, see if the pattern is even in the file.
             repex_lgr.debug('looking for required strings')
             repex_lgr.debug('must include is {0}'.format(must_include))
@@ -179,46 +186,84 @@ class Repex():
             return True
 
         def validate_pattern():
+            """verifies that the pattern exists
+            """
             repex_lgr.debug('looking for pattern to replace')
             # verify that the pattern you're looking to replace
             # exists in the file
             with open(self.path) as f:
-                if not any(re.search(r'{0}'.format(
-                        self.pattern), line) for line in f):
-                    # pattern does not occur in file so we are done.
-                    repex_lgr.warning('pattern {0} not found in {1}'.format(
-                        self.pattern, self.path))
+                content = f.read()
+                repex_lgr.info('file content is: {0}'.format(content))
+                repex_lgr.info('file is: {0}'.format(self.path))
+                if not re.search(r'{0}'.format(self.match), content):
+                    repex_lgr.warning('match {0} not found in {1}'.format(
+                        self.match, self.path))
                     return False
-                repex_lgr.debug('pattern {0} found in {1}'.format(
-                    self.pattern, self.path))
+                else:
+                    m = re.findall(self.match, content)
+                    repex_lgr.info('matches are: {0}'.format(m))
+                    if not any(re.search(r'{0}'.format(
+                            self.pattern), match) for match in m):
+                        # pattern does not occur in file so we are done.
+                        repex_lgr.warning(
+                            'pattern {0} not found in any matches'.format(
+                                self.pattern))
+                        return False
+                    repex_lgr.debug(
+                        'pattern {0} found in one or more matches'.format(
+                            self.pattern))
                 return True
 
         if must_include:
             return verify_includes(must_include)
         return validate_pattern()
 
-    def replace(self, v=None):
-        # iterate over all variables
-        if v:
-            for var, value in v.items():
-                repex_lgr.debug('variable {0}: {1}'.format(var, value))
-                # replace variable in pattern
-                self.pattern = re.sub("{{ " + ".{0}".format(
-                    var) + " }}", str(v[var]), self.pattern)
-                # replace variable in input data
-                self.rwith = re.sub("{{ " + ".{0}".format(
-                    var) + " }}", str(v[var]), self.rwith)
+    def find_matches(self):
+        """finds all matches of an expression in a file
+        """
         with open(self.path) as f:
-            tmpf = self.path + ".tmp"
-            with open(tmpf, "w") as out:
-                repex_lgr.info('{0}: replacing {1} with {2}'.format(
-                    self.path, self.pattern, self.rwith))
-                for line in f:
-                    # replace in the file
-                    out.write(re.sub(self.pattern, self.rwith, line))
-                output_file = self.to_file if self.to_file else self.path
-                repex_lgr.info('writing output to {0}'.format(output_file))
-                shutil.move(tmpf, output_file)
+            return re.findall(self.match, f.read())
+
+    def extend_vars(self, v):
+        """extends the variables to their corresponding values
+        """
+        # TODO: (IMPRV) replace with dict for a more implicit
+        # TODO: (IMPRV) implementation
+        # iterate over all variables
+        for var, value in v.items():
+            # replace variable in pattern
+            self.pattern = re.sub("{{ " + ".{0}".format(
+                var) + " }}", str(v[var]), self.pattern)
+            # replace variable in input data
+            self.rwith = re.sub("{{ " + ".{0}".format(
+                var) + " }}", str(v[var]), self.rwith)
+            self.match = re.sub("{{ " + ".{0}".format(
+                var) + " }}", str(v[var]), self.match)
+            self.path = re.sub("{{ " + ".{0}".format(
+                var) + " }}", str(v[var]), self.path)
+
+    def replace(self, matches):
+        """replaces all occurences of the regex in all matches
+        from a file with a specific value.
+        """
+        temp_file = self.path + ".tmp"
+        repex_lgr.info('{0}: replacing {1} with {2}'.format(
+            self.path, self.pattern, self.rwith))
+        repex_lgr.info('matches are: {0}'.format(matches))
+        with open(self.path) as f:
+            content = f.read()
+        for m in matches:
+            # replace pattern in match
+            r = re.sub(self.pattern, self.rwith, m)
+            repex_lgr.info('replacing {0} with {1}'.format(m, r))
+            # then replace the previous match with the newly formatted one
+            content = content.replace(m, r)
+            repex_lgr.info('content: {0}'.format(content))
+        with open(temp_file, "w") as out:
+            out.write(content)
+        output_file = self.to_file if self.to_file else self.path
+        repex_lgr.info('writing output to {0}'.format(output_file))
+        shutil.move(temp_file, output_file)
 
 
 class RepexError(Exception):

@@ -229,14 +229,15 @@ class Repex():
         # TODO: (IMPRV) implementation
         # iterate over all variables
         def check_if_extended(string):
-            repex_lgr.info('verifying that string {0} extended'.format(string))
+            repex_lgr.debug('verifying that string {0} extended'.format(
+                string))
             if re.search('{{ \..*}}', string):
                 repex_lgr.error('string {0} failed to extend'.format(string))
                 raise RepexError('string failed to extend')
 
         repex_lgr.debug('vars: {0}'.format(v))
         for var, value in v.items():
-            repex_lgr.info('extending variable: {0} to {1}'.format(
+            repex_lgr.debug('extending variable: {0} to {1}'.format(
                 var, str(v[var])))
             # replace variable in pattern
             self.pattern = re.sub("{{ " + ".{0}".format(

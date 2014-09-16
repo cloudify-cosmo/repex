@@ -228,7 +228,16 @@ class Repex():
         # TODO: (IMPRV) replace with dict for a more implicit
         # TODO: (IMPRV) implementation
         # iterate over all variables
+        def check_if_extended(string):
+            repex_lgr.info('verifying that string {0} extended'.format(string))
+            if re.search('{{ \..*}}', string):
+                repex_lgr.error('string {0} failed to extend'.format(string))
+                raise RepexError('string failed to extend')
+
+        repex_lgr.debug('vars: {0}'.format(v))
         for var, value in v.items():
+            repex_lgr.info('extending variable: {0} to {1}'.format(
+                var, str(v[var])))
             # replace variable in pattern
             self.pattern = re.sub("{{ " + ".{0}".format(
                 var) + " }}", str(v[var]), self.pattern)
@@ -239,6 +248,10 @@ class Repex():
                 var) + " }}", str(v[var]), self.match)
             self.path = re.sub("{{ " + ".{0}".format(
                 var) + " }}", str(v[var]), self.path)
+        check_if_extended(self.pattern)
+        check_if_extended(self.rwith)
+        check_if_extended(self.match)
+        check_if_extended(self.path)
 
     def replace(self, matches):
         """replaces all occurences of the regex in all matches

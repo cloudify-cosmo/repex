@@ -249,7 +249,7 @@ class Repex():
         temp_file = self.path + ".tmp"
         repex_lgr.info('{0}: replacing {1} with {2}'.format(
             self.path, self.pattern, self.rwith))
-        repex_lgr.info('matches are: {0}'.format(matches))
+        repex_lgr.debug('matches are: {0}'.format(matches))
         with open(self.path) as f:
             content = f.read()
         for m in matches:
@@ -258,7 +258,6 @@ class Repex():
             repex_lgr.info('replacing {0} with {1}'.format(m, r))
             # then replace the previous match with the newly formatted one
             content = content.replace(m, r)
-            repex_lgr.info('content: {0}'.format(content))
         with open(temp_file, "w") as out:
             out.write(content)
         output_file = self.to_file if self.to_file else self.path

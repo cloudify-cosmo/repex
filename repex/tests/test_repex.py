@@ -98,9 +98,10 @@ class TestBase(unittest.TestCase):
 
     def test_iterate(self):
         output_file = MOCK_TEST_FILE + '.test'
-        iterate(MOCK_CONFIG_FILE)
+        v = {'version': '3.1.0-m3'}
+        iterate(MOCK_CONFIG_FILE, v)
         with open(output_file) as f:
-            self.assertIn('{{ .version }}', f.read())
+            self.assertIn('3.1.0-m3', f.read())
         os.remove(output_file)
 
     def test_iterate_with_vars(self):

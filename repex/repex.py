@@ -145,7 +145,7 @@ def handle_file(f, variables=None, verbose=False):
     validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
     if validate_before and not p.validate_before(must_include):
-            raise RepexError('prevalidation failed')
+        raise RepexError('prevalidation failed')
     matches = p.find_matches()
     p.extend_vars(variables)
     p.replace(matches)
@@ -210,11 +210,10 @@ class Repex():
                     repex_lgr.debug('pattern found in one or more matches')
                 return True
 
-        if must_include:
-            if verify_includes(must_include):
-                return validate_pattern()
-            else:
-                return False
+        if must_include and not verify_includes(must_include) \
+                or not validate_pattern():
+            return False
+        return True
 
     def find_matches(self):
         """finds all matches of an expression in a file

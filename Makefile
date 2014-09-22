@@ -31,8 +31,6 @@ test:
 	tox
 
 docs:
-	pip install sphinx sphinx-rtd-theme
-	cd docs && make html
 	pandoc README.md -f markdown -t rst -s -o README.rst
 
 prepare:

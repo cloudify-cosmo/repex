@@ -5,7 +5,7 @@ paths:
     -   type: mock_VERSION
         path: repex/tests/resources/
         base_directory: repex/tests/resources/
-        match: '"version": ".*"'
+        match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?
         with: "{{ .version }}"
         validate_before: true

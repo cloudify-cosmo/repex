@@ -84,6 +84,6 @@ In case you're providing a path to a file rather than a directory:
 
 3 basic functions are provided:
 
-`iterate` - receives the config yaml file and the variables dict and iterates through the config file's `paths` dict destroying everything that comes in its path :)
-`handle_path` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, finds all files, and processes them (is used by `iterate`).
-`handle_file` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, and processes the specific file specified in the `path` key (used by `handle_path`).
+- `iterate` - receives the config yaml file and the variables dict and iterates through the config file's `paths` dict destroying everything that comes in its path :)
+- `handle_path` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, finds all files, and processes them (is used by `iterate`).
+- `handle_file` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, and processes the specific file specified in the `path` key (used by `handle_path`).

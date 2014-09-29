@@ -19,8 +19,8 @@ Let's say you have files named "VERSION" in different directories which look lik
 {
   "date": "",
   "commit": "",
-  "version": "3.1.0-m2,
-  "version_other": "3.1.2-m1,
+  "version": "3.1.0-m2",
+  "version_other": "3.1.2-m1",
   "build": "8"
 }
 ```

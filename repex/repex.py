@@ -47,10 +47,6 @@ def import_config(config_file):
     except yaml.parser.ParserError as ex:
         repex_lgr.error('invalid yaml file: {0}'.format(ex))
         raise RuntimeError('invalid yaml file')
-    # except SyntaxError:
-    #     repex_lgr.error('config file syntax is malformatted. please fix '
-    #                     'any syntax errors you might have and try again.')
-    #     raise RuntimeError('bad config file')
 
 
 def get_all_files(ftype, path, base_dir):
@@ -59,28 +55,15 @@ def get_all_files(ftype, path, base_dir):
     dirs = []
     for obj in os.listdir(base_dir):
         lookup_dir = os.path.join(base_dir, obj)
-        # repex_lgr.info('looking for {0} in lookup dir: {1}'.format(
-        #    path, lookup_dir))
         if os.path.isdir(lookup_dir) and re.search(
                 r'{0}'.format(path), lookup_dir):
             dirs.append(obj)
-
-    # dirs = [
-    #     x for x in os.listdir(base_dir)
-    #     if os.path.isdir(lookup_dir) and re.search(
-    #         r'{0}'.format(path), lookup_dir)
-    # ]
-    # repex_lgr.info('dirs: {0}'.format(dirs))
     target_files = []
     for directory in dirs:
-        # repex_lgr.info('iterating over {0}'.format(
-        #    os.path.join(base_dir, directory)))
         for root, dirs, files in os.walk(os.path.join(base_dir, directory)):
             for f in files:
                 if f == ftype:
-                    # repex_lgr.info('found file:' + f)
                     target_files.append(os.path.join(root, f))
-    # repex_lgr.info('files: {0}'.format(target_files))
     return target_files
 
 

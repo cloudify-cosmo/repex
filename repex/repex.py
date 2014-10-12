@@ -243,7 +243,6 @@ class Repex():
                 raise RepexError('string failed to expand')
 
         var = "{{ " + ".{0}".format(variable) + " }}"
-        repex_lgr.debug('searching for {0} in {1}'.format(var, in_string))
         if re.search(var, in_string):
             repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
                 variable, value, in_string))

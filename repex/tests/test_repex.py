@@ -118,9 +118,37 @@ class TestBase(unittest.TestCase):
         except RuntimeError as ex:
             self.assertEqual(str(ex), 'variables must be of type dict')
 
-    def test_file_string_not_found(self):
-        p = Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', '', False)
-        self.assertFalse(p.validate_before(must_include=[]))
+    def test_match_not_found_in_file_force_match_and_pattern(self):
+        p = Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
+        self.assertFalse(p.validate_before(True, True, must_include=[]))
+
+    def test_match_not_found_in_file_no_force(self):
+        p = Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
+        self.assertTrue(p.validate_before(False, False, must_include=[]))
+
+    def test_match_not_found_in_file_force_match(self):
+        p = Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
+        self.assertFalse(p.validate_before(True, False, must_include=[]))
+
+    def test_match_not_found_in_file_force_pattern(self):
+        p = Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
+        self.assertTrue(p.validate_before(False, True, must_include=[]))
+
+    def test_pattern_found_in_match_force_pattern(self):
+        p = Repex(MOCK_TEST_FILE, 'version', 'ver', '')
+        self.assertTrue(p.validate_before(False, True, must_include=[]))
+
+    def test_pattern_not_found_in_match_force_pattern(self):
+        p = Repex(MOCK_TEST_FILE, 'version', 'X', '')
+        self.assertFalse(p.validate_before(False, True, must_include=[]))
+
+    def test_pattern_not_found_in_match_force_match(self):
+        p = Repex(MOCK_TEST_FILE, 'version', 'X', '')
+        self.assertTrue(p.validate_before(True, False, must_include=[]))
+
+    def test_pattern_not_found_in_match_no_force(self):
+        p = Repex(MOCK_TEST_FILE, 'version', 'X', '')
+        self.assertTrue(p.validate_before(False, False, must_include=[]))
 
     def test_file_validation_failed(self):
         file = {
@@ -171,7 +199,7 @@ class TestBase(unittest.TestCase):
             'preversion': '3.1.0-m2',
             'version': '3.1.0-m3'
         }
-        iterate(MOCK_CONFIG_MULTIPLE_FILES, v)
+        iterate(MOCK_CONFIG_MULTIPLE_FILES, v, True)
         files = get_all_files(
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
         for fl in files:

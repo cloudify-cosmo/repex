@@ -82,7 +82,7 @@ def iterate(configfile, variables=None, verbose=False):
         raise RepexError('no paths configured')
 
     for path in paths:
-        handle_path(path, variables, verbose=False)
+        handle_path(path, variables, verbose)
 
 
 def handle_path(p, variables, verbose=False):
@@ -125,12 +125,12 @@ def handle_file(f, variables=None, verbose=False):
         f.get('to_file', False),
         verbose
     )
+    p.expand_vars(variables)
     validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
     if validate_before and not p.validate_before(must_include):
         raise RepexError('prevalidation failed')
     matches = p.find_matches()
-    p.expand_vars(variables)
     p.replace(matches)
 
 
@@ -146,7 +146,8 @@ class Repex():
             self.content = f.read()
         _set_global_verbosity_level(verbose)
 
-    def validate_before(self, must_include=[]):
+    def validate_before(self, force_match=False, force_pattern=False,
+                        must_include=[]):
 
         def verify_includes(must_include):
             """verifies that all required strings are in the file
@@ -169,7 +170,7 @@ class Repex():
             repex_lgr.debug('required strings found')
             return True
 
-        def validate_pattern():
+        def validate_pattern(force_pattern, force_match):
             """verifies that the pattern exists
             """
             repex_lgr.debug('looking for pattern {0}'.format(self.pattern))
@@ -178,7 +179,9 @@ class Repex():
             if not re.search(self.match, self.content):
                 repex_lgr.warning('match {0} not found in {1}'.format(
                     self.match, self.path))
-                return False
+                if force_match:
+                    return False
+                return True
             else:
                 # find all matches of the pattern in the file
                 m = self.find_matches()
@@ -188,12 +191,14 @@ class Repex():
                     repex_lgr.warning(
                         'pattern {0} not found in any matches'.format(
                             self.pattern))
-                    return False
+                    if force_pattern:
+                        return False
+                    return True
             repex_lgr.debug('pattern found in one or more matches')
             return True
 
         if must_include and not verify_includes(must_include) \
-                or not validate_pattern():
+                or not validate_pattern(force_pattern, force_match):
             return False
         return True
 
@@ -214,6 +219,22 @@ class Repex():
         # TODO: (IMPRV) implementation
         # TODO: (IMPRV) add expansion tests
         # iterate over all variables
+        repex_lgr.debug('vars: {0}'.format(v))
+        for var, value in v.items():
+            # repex_lgr.debug('expanding variable: {0} to {1}'.format(
+            #     var, str(v[var])))
+            # replace variable in pattern
+            self.pattern = self.expand_var(var, v[var], self.pattern)
+            # repex_lgr.debug('pattern: {0}'.format(self.pattern))
+            self.rwith = self.expand_var(var, v[var], self.rwith)
+            # repex_lgr.debug('rwith: {0}'.format(self.rwith))
+            self.match = self.expand_var(var, v[var], self.match)
+            # repex_lgr.debug('match: {0}'.format(self.match))
+            self.path = self.expand_var(var, v[var], self.path)
+            # repex_lgr.debug('path: {0}'.format(self.path))
+
+    def expand_var(self, variable, value, in_string):
+
         def check_if_expanded(string):
             repex_lgr.debug('verifying that string {0} expanded'.format(
                 string))
@@ -221,24 +242,16 @@ class Repex():
                 repex_lgr.error('string {0} failed to expand'.format(string))
                 raise RepexError('string failed to expand')
 
-        repex_lgr.debug('vars: {0}'.format(v))
-        for var, value in v.items():
-            repex_lgr.debug('expanding variable: {0} to {1}'.format(
-                var, str(v[var])))
-            # replace variable in pattern
-            self.pattern = re.sub("{{ " + ".{0}".format(
-                var) + " }}", str(v[var]), self.pattern)
-            # replace variable in input data
-            self.rwith = re.sub("{{ " + ".{0}".format(
-                var) + " }}", str(v[var]), self.rwith)
-            self.match = re.sub("{{ " + ".{0}".format(
-                var) + " }}", str(v[var]), self.match)
-            self.path = re.sub("{{ " + ".{0}".format(
-                var) + " }}", str(v[var]), self.path)
-        check_if_expanded(self.pattern)
-        check_if_expanded(self.rwith)
-        check_if_expanded(self.match)
-        check_if_expanded(self.path)
+        var = "{{ " + ".{0}".format(variable) + " }}"
+        repex_lgr.debug('searching for {0} in {1}'.format(var, in_string))
+        if re.search(var, in_string):
+            repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
+                variable, value, in_string))
+            expanded_variable = re.sub("{{ " + ".{0}".format(
+                variable) + " }}", str(value), in_string)
+            check_if_expanded(expanded_variable)
+            return expanded_variable
+        return in_string
 
     def replace(self, matches):
         """replaces all occurences of the regex in all matches

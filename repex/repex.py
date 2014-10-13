@@ -64,7 +64,6 @@ def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
         lookup_dir = os.path.join(base_dir, obj)
         if os.path.isdir(lookup_dir) and re.search(
                 r'{0}'.format(path), lookup_dir):
-            # repex_lgr.debug('LOOKUP_DIR: {0}'.format(lookup_dir))
             if lookup_dir in excluded_paths:
                 repex_lgr.info('path {0} is excluded, skipping.'.format(obj))
             else:
@@ -72,22 +71,20 @@ def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
     target_files = []
     for directory in dirs:
         for root, dirs, files in os.walk(os.path.join(base_dir, directory)):
-            repex_lgr.debug('root: {0}'.format(root))
-            repex_lgr.debug('dirs: {0}'.format(dirs))
-            repex_lgr.debug('files: {0}'.format(files))
-            # repex_lgr.debug('CHECKING IF {0} IS IN {1}'.format(
-                # root, excluded_paths))
-            if root in excluded_paths:
+            # repex_lgr.debug('root: {0}'.format(root))
+            # repex_lgr.debug('dirs: {0}'.format(dirs))
+            # repex_lgr.debug('files: {0}'.format(files))
+            excluded_root_paths = []
+            for path in excluded_paths:
+                excluded_root_paths.append(os.path.join(base_dir, path))
+            repex_lgr.debug('excluded paths relative to base_dir: {0}'.format(
+                excluded_root_paths))
+            if root in excluded_root_paths:
                 repex_lgr.info('path {0} is excluded, skipping.'.format(root))
                 continue
             for f in files:
                 if f == ftype:
-                    repex_lgr.debug('FILE: {0}'.format(os.path.join(root, f)))
-                    if os.path.join(root, f) in excluded_paths:
-                        repex_lgr.info(
-                            'path {0} is excluded, skipping.'.format(f))
-                    else:
-                        target_files.append(os.path.join(root, f))
+                    target_files.append(os.path.join(root, f))
     return target_files
 
 

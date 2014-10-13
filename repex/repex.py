@@ -49,7 +49,8 @@ def import_config(config_file):
         raise RuntimeError('invalid yaml file')
 
 
-def get_all_files(ftype, path, base_dir, excluded_paths=None):
+def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
+    _set_global_verbosity_level(verbose)
     excluded_paths = excluded_paths if excluded_paths else []
     repex_lgr.debug('excluded paths: {0}'.format(excluded_paths))
     if type(excluded_paths) is not list:
@@ -71,9 +72,11 @@ def get_all_files(ftype, path, base_dir, excluded_paths=None):
     target_files = []
     for directory in dirs:
         for root, dirs, files in os.walk(os.path.join(base_dir, directory)):
-            # repex_lgr.debug('root: {0}'.format(root))
-            # repex_lgr.debug('dirs: {0}'.format(dirs))
-            # repex_lgr.debug('files: {0}'.format(files))
+            repex_lgr.debug('root: {0}'.format(root))
+            repex_lgr.debug('dirs: {0}'.format(dirs))
+            repex_lgr.debug('files: {0}'.format(files))
+            # repex_lgr.debug('CHECKING IF {0} IS IN {1}'.format(
+                # root, excluded_paths))
             if root in excluded_paths:
                 repex_lgr.info('path {0} is excluded, skipping.'.format(root))
                 continue
@@ -118,7 +121,7 @@ def handle_path(p, variables, verbose=False):
             raise RepexError(
                 '"to_file" requires explicit "path"')
         files = get_all_files(
-            p['type'], p['path'], p['base_directory'], p['excluded'])
+            p['type'], p['path'], p['base_directory'], p['excluded'], verbose)
         repex_lgr.info('files found: {0}'.format(files))
         for f in files:
             p['path'] = f

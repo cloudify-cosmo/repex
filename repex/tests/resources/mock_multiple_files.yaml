@@ -4,6 +4,8 @@ variables:
 paths:
     -   type: mock_VERSION
         path: repex/tests/resources/
+        excluded:
+            - repex/tests/resources/multiple/excluded
         base_directory: repex/tests/resources/
         match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?

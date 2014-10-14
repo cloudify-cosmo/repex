@@ -36,12 +36,17 @@ MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_VERSION')
 BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
 EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
 
+# list of files to include in replacement relative to TEST_RESOURCES_DIR
 FILES = [
-    'repex/tests/resources/multiple/folders/mock_VERSION',
-    'repex/tests/resources/multiple/mock_VERSION'
+    'multiple/folders/mock_VERSION',
+    'multiple/mock_VERSION'
 ]
+# list of files to exclude in replacement relative to TEST_RESOURCES_DIR
 EXCLUDED_FILES = [
-    'repex/tests/resources/multiple/excluded/mock_VERSION'
+    'multiple/excluded/mock_VERSION'
+]
+EXCLUDED_DIRS = [
+    'multiple/excluded'
 ]
 
 
@@ -187,33 +192,49 @@ class TestBase(testtools.TestCase):
             'preversion': '3.1.0-m2',
             'version': '3.1.0-m3'
         }
+        # iterate once
         rpx.iterate(MOCK_CONFIG_MULTIPLE_FILES, v, True)
+        # verify that all files were modified
         for fl in FILES:
-            with open(fl) as f:
+            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
                 self.assertIn('3.1.0-m3', f.read())
+        # all other than the excluded ones
         for fl in EXCLUDED_FILES:
-            with open(fl) as f:
+            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
                 self.assertIn('3.1.0-m2', f.read())
         v['preversion'] = '3.1.0-m3'
         v['version'] = '3.1.0-m2'
         rpx.iterate(MOCK_CONFIG_MULTIPLE_FILES, v)
         for fl in FILES:
-            with open(fl) as f:
+            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
                 self.assertIn('3.1.0-m2', f.read())
         for fl in EXCLUDED_FILES:
-            with open(fl) as f:
+            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
                 self.assertIn('3.1.0-m2', f.read())
 
     def test_get_all_files_no_exclusion(self):
         files = rpx.get_all_files(
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
         for f in FILES + EXCLUDED_FILES:
-            self.assertIn(f, files)
+            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
 
-    def test_get_all_files_with_exclusion(self):
+    def test_get_all_files_with_file_exclusion(self):
         files = rpx.get_all_files(
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
             EXCLUDED_FILES)
+        for f in EXCLUDED_FILES:
+            self.assertIn(
+                'repex/tests/resources/multiple/folders/mock_VERSION', files)
+            self.assertIn(
+                'repex/tests/resources/multiple/mock_VERSION', files)
+        for f in EXCLUDED_FILES:
+            self.assertNotIn(
+                'repex/tests/resources/multiple/excluded/mock_VERSION', files)
+
+    def test_get_all_files_with_dir_exclusion(self):
+        files = rpx.get_all_files(
+            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            EXCLUDED_DIRS)
         for f in EXCLUDED_FILES:
             self.assertIn(
                 'repex/tests/resources/multiple/folders/mock_VERSION', files)

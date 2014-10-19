@@ -106,10 +106,10 @@ def iterate(configfile, variables=None, verbose=False):
 
 def handle_path(p, variables, verbose=False):
     _set_global_verbosity_level(verbose)
-    if os.path.isfile(p['path']):
-        if p.get('base_directory'):
-            repex_lgr.info(
-                'base_directory is irrelevant when dealing with single files')
+    repex_lgr.debug('path to process: {0}'.format(
+        os.path.join(p['base_directory'], p['path'])))
+    if os.path.isfile(os.path.join(p['base_directory'], p['path'])):
+        p['path'] = os.path.join(p['base_directory'], p['path'])
         handle_file(p, variables, verbose)
     else:
         if p.get('to_file'):

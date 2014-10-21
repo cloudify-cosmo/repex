@@ -259,16 +259,15 @@ class TestBase(testtools.TestCase):
         files = rpx.get_all_files(
             'mock.*\.yaml', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
 
-        print files
-        self.assertEquals(len(MOCK_YAML_FILES),len(files))
+        self.assertEquals(len(MOCK_YAML_FILES), len(files))
         for f in MOCK_YAML_FILES:
             self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
 
     def test_get_all_mock_version_files_with_exclude(self):
         files = rpx.get_all_files(
-            'mock.*', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,excluded_paths=['multiple'],exclude_file_name_regex='.*VERSION.*')
+            'mock.*', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            excluded_paths=['multiple'], exclude_file_name_regex='.*VERSION.*')
 
-        print files
-        self.assertEquals(len(MOCK_YAML_FILES),len(files))
+        self.assertEquals(len(MOCK_YAML_FILES), len(files))
         for f in MOCK_YAML_FILES:
             self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)

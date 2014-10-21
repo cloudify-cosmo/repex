@@ -49,7 +49,8 @@ def import_config(config_file):
         raise RuntimeError('invalid yaml file')
 
 
-def get_all_files(file_name_regex, path, base_dir, excluded_paths=None, verbose=False,exclude_file_name_regex=None):
+def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
+                  verbose=False, exclude_file_name_regex=None):
     _set_global_verbosity_level(verbose)
     excluded_paths = excluded_paths if excluded_paths else []
     repex_lgr.debug('excluded paths: {0}'.format(excluded_paths))
@@ -81,7 +82,7 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None, verbose=
                 if re.match(
                         r'{0}'.format(file_name_regex), f)\
                         and not re.match(
-                                r'{0}'.format(exclude_file_name_regex), f)\
+                            r'{0}'.format(exclude_file_name_regex), f)\
                         and not os.path.join(root, f) in ex_paths:
                     target_files.append(os.path.join(root, f))
                 elif os.path.join(root, f) in ex_paths:

@@ -49,7 +49,7 @@ def import_config(config_file):
         raise RuntimeError('invalid yaml file')
 
 
-def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
+def get_all_files(file_name_regex, path, base_dir, excluded_paths=None, verbose=False,exclude_file_name_regex=None):
     _set_global_verbosity_level(verbose)
     excluded_paths = excluded_paths if excluded_paths else []
     repex_lgr.debug('excluded paths: {0}'.format(excluded_paths))
@@ -58,7 +58,7 @@ def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
             'excluded_paths must be of type list (not {0})'.format(
                 type(excluded_paths)))
     repex_lgr.info('looking for {0}\'s under {1} in {2}'.format(
-        ftype, path, base_dir))
+        file_name_regex, path, base_dir))
     dirs = []
     for obj in os.listdir(base_dir):
         lookup_dir = os.path.join(base_dir, obj)
@@ -78,7 +78,11 @@ def get_all_files(ftype, path, base_dir, excluded_paths=None, verbose=False):
                 repex_lgr.info('path {0} is excluded, skipping.'.format(root))
                 continue
             for f in files:
-                if f == ftype and not os.path.join(root, f) in ex_paths:
+                if re.match(
+                        r'{0}'.format(file_name_regex), f)\
+                        and not re.match(
+                                r'{0}'.format(exclude_file_name_regex), f)\
+                        and not os.path.join(root, f) in ex_paths:
                     target_files.append(os.path.join(root, f))
                 elif os.path.join(root, f) in ex_paths:
                     repex_lgr.debug('path {0} is excluded, skipping.'.format(

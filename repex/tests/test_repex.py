@@ -36,6 +36,10 @@ MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_VERSION')
 BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
 EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
 
+MOCK_YAML_FILES = ['mock_yaml/mock_files.yaml',
+                   'mock_yaml/mock_multiple_files.yaml']
+
+EXCLUDE_FILE_REGEX = '.*VERSION.*'
 # list of files to include in replacement relative to TEST_RESOURCES_DIR
 FILES = [
     'multiple/folders/mock_VERSION',
@@ -250,3 +254,20 @@ class TestBase(testtools.TestCase):
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN,
             TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
         self.assertIn('excluded_paths must be of type list', str(ex))
+
+    def test_get_all_mock_version_files(self):
+        files = rpx.get_all_files(
+            'mock.*\.yaml', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
+
+        self.assertEquals(len(MOCK_YAML_FILES), len(files))
+        for f in MOCK_YAML_FILES:
+            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
+
+    def test_get_all_mock_version_files_with_exclude(self):
+        files = rpx.get_all_files(
+            'mock.*', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            excluded_paths=['multiple'], exclude_file_name_regex='.*VERSION.*')
+
+        self.assertEquals(len(MOCK_YAML_FILES), len(files))
+        for f in MOCK_YAML_FILES:
+            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)

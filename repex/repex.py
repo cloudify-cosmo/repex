@@ -109,8 +109,9 @@ def iterate(configfile, variables=None, verbose=False):
         handle_path(path, variables, verbose)
 
 
-def handle_path(p, variables, verbose=False):
+def handle_path(p, variables=None, verbose=False):
     _set_global_verbosity_level(verbose)
+    p['base_directory'] = p.get('base_directory', '')
     repex_lgr.debug('path to process: {0}'.format(
         os.path.join(p['base_directory'], p['path'])))
     if os.path.isfile(os.path.join(p['base_directory'], p['path'])):
@@ -142,6 +143,9 @@ def handle_file(f, variables=None, verbose=False):
     variables = variables if variables else {}
     if type(variables) is not dict:
         raise RuntimeError('variables must be of type dict')
+    if not os.path.isfile(f['path']):
+        repex_lgr.error('file not found: {0}'.format(f['path']))
+        return False
     p = Repex(
         f['path'],
         f['match'],

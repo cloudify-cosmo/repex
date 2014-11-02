@@ -30,8 +30,6 @@ And you'd like to replace 3.1.0-m2 with 3.1.0-m3 in all of those files
 You would create a repex config.yaml with the following:
 
 ```yaml
-variables:
-    version: 3.1.0m3
 
 paths:
     -   type: VERSION

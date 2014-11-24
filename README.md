@@ -3,6 +3,15 @@ repex
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
+Why not use sed you ask? Because `repex` provides some layers of protection and an easy to use config yaml in which you easily add new files and folders to iterate through.
+
+The layers are:
+* Match and only then replace in the matched regular expression.
+* Check for existing strings in a file before replacing anything.
+* Exclude files and folders so that you don't screw up.
+
+AND, you can use variables (sorta jinja2 style). How cool is that?
+
 ### Installation
 
 Currently, repex is not in pypi, so you'll have to install it directly from Github:

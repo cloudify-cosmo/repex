@@ -10,7 +10,7 @@ The layers are:
 * Check for existing strings in a file before replacing anything.
 * Exclude files and folders so that you don't screw up.
 
-AND, you can use variables (sorta jinja2 style). How cool is that?
+AND, you can use variables (sorta jinja2 style). How cool is that? See reference config below.
 
 ### Installation
 
@@ -42,10 +42,10 @@ You would create a repex config.yaml with the following:
 
 paths:
     -   type: VERSION
-        path: repex/tests/resources/
+        path: resources/
         excluded:
-            - repex/tests/resources/multiple/excluded
-        base_directory: repex/tests/resources/
+            - resources/multiple/excluded
+        base_directory: repex/tests/
         match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?
         with: "{{ .version }}"
@@ -61,7 +61,7 @@ and do the following
 ```python
 
 import os
-from repex.repex import iterate
+import repex.repex as rpx
 
 VERSION = os.environ['VERSION'] # '3.1.0-m3'
 
@@ -69,7 +69,7 @@ variables = {
     'version': VERSION
 }
 
-iterate(CONFIG_YAML_FILE, variables)
+rpx.iterate(CONFIG_YAML_FILE, variables)
 ```
 
 #### Config yaml Explained
@@ -77,7 +77,7 @@ iterate(CONFIG_YAML_FILE, variables)
 - `variables` is a dict of variables you can use throughout the config (using the API, you can also send the dictionary rather the hard code it into the config.yaml, which is obviously the more common use case.) `path`, `match`, `replace` and `with` can all receive variables.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
-- `excluded_paths` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
+- `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
 - `base_directory` is the directory from which you'd like to start the recursive search for files.
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way to replace strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.
 - `replace` - which regex would you like to replace?

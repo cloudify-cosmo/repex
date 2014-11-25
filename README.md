@@ -3,6 +3,15 @@ repex
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
+Why not use sed you ask? Because `repex` provides some layers of protection and an easy to use config yaml in which you easily add new files and folders to iterate through.
+
+The layers are:
+* Match and only then replace in the matched regular expression.
+* Check for existing strings in a file before replacing anything.
+* Exclude files and folders so that you don't screw up.
+
+AND, you can use variables (sorta jinja2 style). How cool is that?
+
 ### Installation
 
 Currently, repex is not in pypi, so you'll have to install it directly from Github:
@@ -30,8 +39,6 @@ And you'd like to replace 3.1.0-m2 with 3.1.0-m3 in all of those files
 You would create a repex config.yaml with the following:
 
 ```yaml
-variables:
-    version: 3.1.0m3
 
 paths:
     -   type: VERSION
@@ -68,12 +75,17 @@ iterate(CONFIG_YAML_FILE, variables)
 #### Config yaml Explained
 
 - `variables` is a dict of variables you can use throughout the config (using the API, you can also send the dictionary rather the hard code it into the config.yaml, which is obviously the more common use case.) `path`, `match`, `replace` and `with` can all receive variables.
+<<<<<<< HEAD
 - `type` - the file names (regex) you'd like to look for.
 - `path` - a regex path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
+=======
+- `type` is a regex string representing the file name you're looking for.
+- `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
+>>>>>>> 3087bd70461bf6ae0c572d6ce10e5eb7434fd48a
 - `excluded_paths` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
 - `base_directory` is the directory from which you'd like to start the recursive search for files. If `path` is a path to a file, this property can be omitted. Alternatively, you can set the `base_directory` and a `path` relative to it.
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way to replace strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.
-- `replace` - which regex expression would you like to replace?
+- `replace` - which regex would you like to replace?
 - `with` - what you replace with.
 - `validate_before` - a flag stating that you'd like to validate that the pattern you're looking for exists in the file and that all strings in `must_include` exists in the file as well.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.

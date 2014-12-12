@@ -38,7 +38,7 @@ def import_config(config_file):
     repex_lgr.debug('config file is: {}'.format(config_file))
     # append to path for importing
     try:
-        repex_lgr.debug('importing config...')
+        repex_lgr.info('importing config...')
         with open(config_file, 'r') as c:
             return yaml.safe_load(c.read())
     except IOError as ex:
@@ -91,6 +91,47 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     return target_files
 
 
+class VarHandler():
+
+    def __init__(self, path_attributes):
+        self.attributes = path_attributes
+
+    def expand(self, v):
+        """expands the variables to their corresponding values
+        """
+        # TODO: (IMPRV) replace with dict for a more implicit
+        # TODO: (IMPRV) implementation
+        # TODO: (IMPRV) add expansion tests
+        # iterate over all variables
+        repex_lgr.info('expanding variables...')
+        for var, value in v.items():
+            for attribute in self.attributes.keys():
+                if isinstance(self.attributes[attribute], str):
+                    self.attributes[attribute] = \
+                        self.expand_var(
+                            var, v[var], self.attributes[attribute])
+        return self.attributes
+
+    def expand_var(self, variable, value, in_string):
+
+        def check_if_expanded(string, variable):
+            repex_lgr.debug('verifying that string {0} expanded'.format(
+                string))
+            if re.search('{{ ' + '.{0}'.format(variable) + ' }}', string):
+                repex_lgr.error('string {0} failed to expand'.format(string))
+                raise RepexError('string failed to expand')
+
+        var = "{{ " + ".{0}".format(variable) + " }}"
+        if re.search(var, in_string):
+            repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
+                variable, value, in_string))
+            expanded_variable = re.sub("{{ " + ".{0}".format(
+                variable) + " }}", str(value), in_string)
+            check_if_expanded(expanded_variable, variable)
+            return expanded_variable
+        return in_string
+
+
 def iterate(configfile, variables=None, verbose=False):
     """iterates over all files in `configfile`
 
@@ -111,6 +152,11 @@ def iterate(configfile, variables=None, verbose=False):
 
 def handle_path(p, variables, verbose=False):
     _set_global_verbosity_level(verbose)
+    variables = variables if variables else {}
+    if type(variables) is not dict:
+        raise RuntimeError('variables must be of type dict')
+    var_expander = VarHandler(p)
+    p = var_expander.expand(variables)
     if os.path.isfile(p['path']):
         if p.get('base_directory'):
             repex_lgr.info(
@@ -139,9 +185,6 @@ def handle_file(f, variables=None, verbose=False):
     :param bool verbose: verbose output flag
     """
     _set_global_verbosity_level(verbose)
-    variables = variables if variables else {}
-    if type(variables) is not dict:
-        raise RuntimeError('variables must be of type dict')
     p = Repex(
         f['path'],
         f['match'],
@@ -151,10 +194,11 @@ def handle_file(f, variables=None, verbose=False):
         verbose
     )
     repex_lgr.debug('vars: {0}'.format(variables))
-    p.expand_vars(variables)
     validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
+    if not isinstance(validate_before, bool):
+        raise RepexError('validate_before must be either of type boolean')
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
-    if validate_before and not p.validate_before(must_include):
+    if validate_before and not p.validate_before(must_include=must_include):
         raise RepexError('prevalidation failed')
     matches = p.find_matches()
     p.replace(matches)
@@ -188,7 +232,7 @@ class Repex():
                     if not any(re.search(r'{0}'.format(
                             string), line) for line in f):
                         repex_lgr.error(
-                            'required string {0} not found in {1}'.format(
+                            'required string "{0}" not found in {1}'.format(
                                 string, self.path))
                         included = False
             if not included:
@@ -237,45 +281,6 @@ class Repex():
         m = [d['matchgroup'] for d in x if d.get('matchgroup')]
         repex_lgr.debug('matches found: {0}'.format(m))
         return m
-
-    def expand_vars(self, v):
-        """expands the variables to their corresponding values
-        """
-        # TODO: (IMPRV) replace with dict for a more implicit
-        # TODO: (IMPRV) implementation
-        # TODO: (IMPRV) add expansion tests
-        # iterate over all variables
-        for var, value in v.items():
-            # repex_lgr.debug('expanding variable: {0} to {1}'.format(
-            #     var, str(v[var])))
-            # replace variable in pattern
-            self.pattern = self.expand_var(var, v[var], self.pattern)
-            # repex_lgr.debug('pattern: {0}'.format(self.pattern))
-            self.rwith = self.expand_var(var, v[var], self.rwith)
-            # repex_lgr.debug('rwith: {0}'.format(self.rwith))
-            self.match = self.expand_var(var, v[var], self.match)
-            # repex_lgr.debug('match: {0}'.format(self.match))
-            self.path = self.expand_var(var, v[var], self.path)
-            # repex_lgr.debug('path: {0}'.format(self.path))
-
-    def expand_var(self, variable, value, in_string):
-
-        def check_if_expanded(string):
-            repex_lgr.debug('verifying that string {0} expanded'.format(
-                string))
-            if re.search('{{ \..*}}', string):
-                repex_lgr.error('string {0} failed to expand'.format(string))
-                raise RepexError('string failed to expand')
-
-        var = "{{ " + ".{0}".format(variable) + " }}"
-        if re.search(var, in_string):
-            repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
-                variable, value, in_string))
-            expanded_variable = re.sub("{{ " + ".{0}".format(
-                variable) + " }}", str(value), in_string)
-            check_if_expanded(expanded_variable)
-            return expanded_variable
-        return in_string
 
     def replace(self, matches):
         """replaces all occurences of the regex in all matches

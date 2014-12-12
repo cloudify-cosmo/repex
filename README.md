@@ -63,18 +63,25 @@ and do the following
 import os
 import repex.repex as rpx
 
-VERSION = os.environ['VERSION'] # '3.1.0-m3'
+CONFIG_YAML_FILE = "tester.yaml"
+VERSION = os.environ['VERSION']  # '3.1.0-m3'
 
 variables = {
     'version': VERSION
 }
 
 rpx.iterate(CONFIG_YAML_FILE, variables)
+
 ```
 
 #### Config yaml Explained
 
-- `variables` is a dict of variables you can use throughout the config (using the API, you can also send the dictionary rather the hard code it into the config.yaml, which is obviously the more common use case.) `path`, `match`, `replace` and `with` can all receive variables.
+IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or they will not expand! Might fix that in future versions...
+
+ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this: {{ .VER_NAME }}
+Don't forget the spaces!
+
+- `variables` is a dict of variables you can use throughout the config (using the API, you can also send the dictionary rather the hard code it into the config.yaml, which is obviously the more common use case.) `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.

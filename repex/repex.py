@@ -92,28 +92,62 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
 
 
 class VarHandler():
+    """handles variable expansion and replacement
+    """
+    def __init__(self, verbose=False):
+        _set_global_verbosity_level(verbose)
 
-    def __init__(self, path_attributes):
-        self.attributes = path_attributes
+    def expand(self, vars, attributes):
+        """receives a list of variables and a dict of attributes
+        and iterates through them to expand a variable in an attribute
 
-    def expand(self, v):
-        """expands the variables to their corresponding values
+        attributes:
+
+        type: VERSION
+        path: resources
+        excluded:
+            - excluded_file.file
+        base_directory: '{{ .base_dir }}'
+        match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
+        replace: \d+\.\d+(\.\d+)?(-\w\d+)?
+        with: "{{ .version }}"
+        validate_before: true
+        must_include:
+            - date
+            - commit
+            - version
+
+        variables:
+
+        {
+            'version': 3,
+            'base_dir': .
+        }
+
+        Will only replace in attributes of type `string`. So, for instance,
+        the values in `excluded`, `must_include` and `validate_before`
+        will not be replaced.
+
+        :param dict vars: dict of variables
+        :param dict attributes: dict of attributes as shown above.
         """
-        # TODO: (IMPRV) replace with dict for a more implicit
-        # TODO: (IMPRV) implementation
-        # TODO: (IMPRV) add expansion tests
+
         # iterate over all variables
         repex_lgr.info('expanding variables...')
-        for var, value in v.items():
-            for attribute in self.attributes.keys():
-                if isinstance(self.attributes[attribute], str):
-                    self.attributes[attribute] = \
-                        self.expand_var(
-                            var, v[var], self.attributes[attribute])
-        return self.attributes
+        for var, value in vars.items():
+            for attribute in attributes.keys():
+                if isinstance(attributes[attribute], str):
+                    attributes[attribute] = self.expand_var(
+                        var, vars[var], attributes[attribute])
+        return attributes
 
     def expand_var(self, variable, value, in_string):
+        """expands variable to its corresponding value in_string
 
+        :param string variable: variable name
+        :param value: value to replace with
+        :param string in_string: the string to replace in
+        """
         def check_if_expanded(string, variable):
             repex_lgr.debug('verifying that string {0} expanded'.format(
                 string))
@@ -155,8 +189,8 @@ def handle_path(p, variables, verbose=False):
     variables = variables if variables else {}
     if type(variables) is not dict:
         raise RuntimeError('variables must be of type dict')
-    var_expander = VarHandler(p)
-    p = var_expander.expand(variables)
+    var_expander = VarHandler(verbose)
+    p = var_expander.expand(variables, p)
     if os.path.isfile(p['path']):
         if p.get('base_directory'):
             repex_lgr.info(

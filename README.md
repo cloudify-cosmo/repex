@@ -42,10 +42,10 @@ You would create a repex config.yaml with the following:
 
 paths:
     -   type: VERSION
-        path: resources/
+        path: resources
         excluded:
-            - resources/multiple/excluded
-        base_directory: repex/tests/
+            - excluded_file.file
+        base_directory: "{{ .base_dir }}"
         match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?
         with: "{{ .version }}"
@@ -67,7 +67,8 @@ CONFIG_YAML_FILE = "tester.yaml"
 VERSION = os.environ['VERSION']  # '3.1.0-m3'
 
 variables = {
-    'version': VERSION
+    'version': VERSION,
+    'base_dir': .
 }
 
 rpx.iterate(CONFIG_YAML_FILE, variables)
@@ -101,6 +102,91 @@ In case you're providing a path to a file rather than a directory:
 
 3 basic functions are provided:
 
-- `iterate` - receives the config yaml file and the variables dict and iterates through the config file's `paths` dict destroying everything that comes in its path :)
-- `handle_path` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, finds all files, and processes them (is used by `iterate`).
-- `handle_file` - receives one of the objects in the `paths` dict in the config yaml file and the variables dict, and processes the specific file specified in the `path` key (used by `handle_path`).
+The following examples all perform the exact same function (`iterate`) but using the different provided methods.
+
+##### iterate
+
+Receives the config yaml file and the variables dict and iterates through the config file's `paths` list destroying everything that comes in its path :)
+
+```python
+
+import os
+import repex.repex as rpx
+
+CONFIG_YAML_FILE = "tester.yaml"
+VERSION = os.environ['VERSION']  # '3.1.0-m3'
+VERBOSE = True
+
+variables = {
+    'version': VERSION,
+    'base_dir': .
+}
+
+rpx.iterate(CONFIG_YAML_FILE, variables, verbose=VERBOSE)
+
+```
+
+##### handle_path
+
+Receives one of the objects in the `paths` list in the config yaml file and the variables dict, finds all files of name `type` and processes them (is used by `iterate`).
+
+```python
+
+import os
+import repex.repex as rpx
+
+CONFIG_YAML_FILE = "tester.yaml"
+VERSION = os.environ['VERSION']  # '3.1.0-m3'
+VERBOSE = True
+
+variables = {
+    'version': VERSION,
+    'base_dir': .
+}
+
+# this is what iterate would do if it was called directly
+config = rpx.import_config(CONFIG_YAML_FILE)
+for p in config['paths']:
+    rpx.handle_path(p, variables, verbose=VERBOSE)
+
+```
+
+##### handle_file
+
+Receives one of the objects in the `paths` list in the config yaml file and the variables dict, and processes the specific file specified in the `path` key (used by `handle_path`).
+
+IMPORTANT:
+
+* Variable expansion occurs only in `handle_path`. Therefore, if variables exist, we must manually call the variable expansion method.
+* The `path` attribute in each object must be a path to a file.
+* `get_all_files` will find all files with name `type` in `path` from dir `base_directory`, excluding `excluded`.
+
+```python
+
+import os
+import repex.repex as rpx
+
+
+CONFIG_YAML_FILE = "tester.yaml"
+VERSION = os.environ['VERSION']  # '3.1.0-m3'
+VERBOSE = True
+
+variables = {
+    'version': VERSION,
+    'base_dir': .
+}
+
+# this is what iterate would do if it was called directly
+config = rpx.import_config(CONFIG_YAML_FILE)
+for p in config['paths']:
+    files = get_all_files(
+        p['type'], p['path'], p['base_directory'], p['excluded'], , verbose=VERBOSE)
+
+    # this is what handle_path would do if it was called directly
+    var_expander = rpx.VarHandler(p)
+    p = var_expander.expand(variables)
+    for file in files:
+        p['path'] = file
+        rpx.handle_file(file, variables, verbose=VERBOSE)
+
+```

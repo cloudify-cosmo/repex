@@ -167,7 +167,7 @@ class VarHandler():
 
 
 def iterate(configfile, variables=None, verbose=False):
-    """iterates over all files in `configfile`
+    """iterates over all paths in `configfile`
 
     :param string configfile: yaml path with files to iterate over
     :param dict variables: a dict of variables (can be None)
@@ -185,6 +185,12 @@ def iterate(configfile, variables=None, verbose=False):
 
 
 def handle_path(p, variables, verbose=False):
+    """iterates over all files in p['path']
+
+    :param dict p: a dict of a specific path in the config
+    :param dict variables: a dict of variables (can be None)
+    :param bool verbose: verbose output flag
+    """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
     if type(variables) is not dict:

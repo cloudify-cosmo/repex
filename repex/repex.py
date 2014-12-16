@@ -220,7 +220,7 @@ def handle_file(f, variables=None, verbose=False):
     this will perform a validation if necessary and then
     perform the replacement in the file.
 
-    :param dict file: a dict of a single file's properties
+    :param dict f: a dict of a single file's properties
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """

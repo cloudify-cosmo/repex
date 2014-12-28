@@ -38,7 +38,7 @@ def import_config(config_file):
     repex_lgr.debug('config file is: {}'.format(config_file))
     # append to path for importing
     try:
-        repex_lgr.debug('importing config...')
+        repex_lgr.info('importing config...')
         with open(config_file, 'r') as c:
             return yaml.safe_load(c.read())
     except IOError as ex:
@@ -91,8 +91,83 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     return target_files
 
 
+class VarHandler():
+    """handles variable expansion and replacement
+    """
+    def __init__(self, verbose=False):
+        _set_global_verbosity_level(verbose)
+
+    def expand(self, vars, attributes):
+        """receives a list of variables and a dict of attributes
+        and iterates through them to expand a variable in an attribute
+
+        attributes:
+
+        type: VERSION
+        path: resources
+        excluded:
+            - excluded_file.file
+        base_directory: '{{ .base_dir }}'
+        match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
+        replace: \d+\.\d+(\.\d+)?(-\w\d+)?
+        with: "{{ .version }}"
+        validate_before: true
+        must_include:
+            - date
+            - commit
+            - version
+
+        variables:
+
+        {
+            'version': 3,
+            'base_dir': .
+        }
+
+        Will only replace in attributes of type `string`. So, for instance,
+        the values in `excluded`, `must_include` and `validate_before`
+        will not be replaced.
+
+        :param dict vars: dict of variables
+        :param dict attributes: dict of attributes as shown above.
+        """
+
+        # iterate over all variables
+        repex_lgr.info('expanding variables...')
+        for var, value in vars.items():
+            for attribute in attributes.keys():
+                if isinstance(attributes[attribute], str):
+                    attributes[attribute] = self.expand_var(
+                        var, vars[var], attributes[attribute])
+        return attributes
+
+    def expand_var(self, variable, value, in_string):
+        """expands variable to its corresponding value in_string
+
+        :param string variable: variable name
+        :param value: value to replace with
+        :param string in_string: the string to replace in
+        """
+        def check_if_expanded(string, variable):
+            repex_lgr.debug('verifying that string {0} expanded'.format(
+                string))
+            if re.search('{{ ' + '.{0}'.format(variable) + ' }}', string):
+                repex_lgr.error('string {0} failed to expand'.format(string))
+                raise RepexError('string failed to expand')
+
+        var = "{{ " + ".{0}".format(variable) + " }}"
+        if re.search(var, in_string):
+            repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
+                variable, value, in_string))
+            expanded_variable = re.sub("{{ " + ".{0}".format(
+                variable) + " }}", str(value), in_string)
+            check_if_expanded(expanded_variable, variable)
+            return expanded_variable
+        return in_string
+
+
 def iterate(configfile, variables=None, verbose=False):
-    """iterates over all files in `configfile`
+    """iterates over all paths in `configfile`
 
     :param string configfile: yaml path with files to iterate over
     :param dict variables: a dict of variables (can be None)
@@ -110,7 +185,18 @@ def iterate(configfile, variables=None, verbose=False):
 
 
 def handle_path(p, variables=None, verbose=False):
+    """iterates over all files in p['path']
+
+    :param dict p: a dict of a specific path in the config
+    :param dict variables: a dict of variables (can be None)
+    :param bool verbose: verbose output flag
+    """
     _set_global_verbosity_level(verbose)
+    variables = variables if variables else {}
+    if type(variables) is not dict:
+        raise RuntimeError('variables must be of type dict')
+    var_expander = VarHandler(verbose)
+    p = var_expander.expand(variables, p)
     p['base_directory'] = p.get('base_directory', '')
     repex_lgr.debug('path to process: {0}'.format(
         os.path.join(p['base_directory'], p['path'])))
@@ -135,7 +221,7 @@ def handle_file(f, variables=None, verbose=False):
     this will perform a validation if necessary and then
     perform the replacement in the file.
 
-    :param dict file: a dict of a single file's properties
+    :param dict f: a dict of a single file's properties
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
@@ -155,10 +241,11 @@ def handle_file(f, variables=None, verbose=False):
         verbose
     )
     repex_lgr.debug('vars: {0}'.format(variables))
-    p.expand_vars(variables)
     validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
+    if not isinstance(validate_before, bool):
+        raise RepexError('validate_before must be either of type boolean')
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
-    if validate_before and not p.validate_before(must_include):
+    if validate_before and not p.validate_before(must_include=must_include):
         raise RepexError('prevalidation failed')
     matches = p.find_matches()
     p.replace(matches)
@@ -192,7 +279,7 @@ class Repex():
                     if not any(re.search(r'{0}'.format(
                             string), line) for line in f):
                         repex_lgr.error(
-                            'required string {0} not found in {1}'.format(
+                            'required string "{0}" not found in {1}'.format(
                                 string, self.path))
                         included = False
             if not included:
@@ -241,45 +328,6 @@ class Repex():
         m = [d['matchgroup'] for d in x if d.get('matchgroup')]
         repex_lgr.debug('matches found: {0}'.format(m))
         return m
-
-    def expand_vars(self, v):
-        """expands the variables to their corresponding values
-        """
-        # TODO: (IMPRV) replace with dict for a more implicit
-        # TODO: (IMPRV) implementation
-        # TODO: (IMPRV) add expansion tests
-        # iterate over all variables
-        for var, value in v.items():
-            # repex_lgr.debug('expanding variable: {0} to {1}'.format(
-            #     var, str(v[var])))
-            # replace variable in pattern
-            self.pattern = self.expand_var(var, v[var], self.pattern)
-            # repex_lgr.debug('pattern: {0}'.format(self.pattern))
-            self.rwith = self.expand_var(var, v[var], self.rwith)
-            # repex_lgr.debug('rwith: {0}'.format(self.rwith))
-            self.match = self.expand_var(var, v[var], self.match)
-            # repex_lgr.debug('match: {0}'.format(self.match))
-            self.path = self.expand_var(var, v[var], self.path)
-            # repex_lgr.debug('path: {0}'.format(self.path))
-
-    def expand_var(self, variable, value, in_string):
-
-        def check_if_expanded(string):
-            repex_lgr.debug('verifying that string {0} expanded'.format(
-                string))
-            if re.search('{{ \..*}}', string):
-                repex_lgr.error('string {0} failed to expand'.format(string))
-                raise RepexError('string failed to expand')
-
-        var = "{{ " + ".{0}".format(variable) + " }}"
-        if re.search(var, in_string):
-            repex_lgr.debug('expanding var {0} to {1} in {2}'.format(
-                variable, value, in_string))
-            expanded_variable = re.sub("{{ " + ".{0}".format(
-                variable) + " }}", str(value), in_string)
-            check_if_expanded(expanded_variable)
-            return expanded_variable
-        return in_string
 
     def replace(self, matches):
         """replaces all occurences of the regex in all matches

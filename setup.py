@@ -55,7 +55,6 @@ setup(
     },
     install_requires=[
         "docopt==.0.6.1",
-        "infi.docopt_completion==0.2.1",
         "pyyaml==3.10",
     ],
     tests_require=['nose', 'tox'],

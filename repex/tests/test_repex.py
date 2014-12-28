@@ -24,15 +24,13 @@ from testfixtures import log_capture
 import logging
 
 
-TEST_DIR = '{0}/test_dir'.format(os.path.expanduser("~"))
-TEST_FILE_NAME = 'test_file'
-TEST_FILE = TEST_DIR + '/' + TEST_FILE_NAME
 TEST_RESOURCES_DIR = 'repex/tests/resources/'
 TEST_RESOURCES_DIR_PATTERN = 'repex/tests/resource.*'
 MOCK_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_files.yaml')
 MOCK_CONFIG_MULTIPLE_FILES = os.path.join(TEST_RESOURCES_DIR,
                                           'mock_multiple_files.yaml')
-MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_VERSION')
+TEST_FILE_NAME = 'mock_VERSION'
+MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, TEST_FILE_NAME)
 BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
 EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
 
@@ -190,6 +188,56 @@ class TestBase(testtools.TestCase):
             rpx.handle_file(file, verbose=True)
         except rpx.RepexError as ex:
             self.assertEqual(str(ex), 'prevalidation failed')
+
+    def test_path_with_and_without_base_directory(self):
+        p = {
+            'path': TEST_FILE_NAME,
+            'base_directory': TEST_RESOURCES_DIR,
+            'match': '3.1.0-m2',
+            'replace': '3.1.0-m2',
+            'with': '3.1.0-m3',
+            'validate_before': True
+        }
+        t = {
+            'path': MOCK_TEST_FILE,
+            'match': '3.1.0-m3',
+            'replace': '3.1.0-m3',
+            'with': '3.1.0-m2',
+            'validate_before': True
+        }
+        rpx.handle_path(p, verbose=True)
+        with open(p['path']) as f:
+            content = f.read()
+        self.assertIn('3.1.0-m3', content)
+        rpx.handle_path(t, verbose=True)
+        with open(t['path']) as f:
+            content = f.read()
+        self.assertIn('3.1.0-m2', content)
+
+    def test_to_file_requires_explicit_path(self):
+        p = {
+            'path': TEST_RESOURCES_DIR_PATTERN,
+            'base_directory': '',
+            'match': '3.1.0-m2',
+            'replace': '3.1.0-m2',
+            'with': '3.1.0-m3',
+            'to_file': '/x.x',
+            'validate_before': True
+        }
+        ex = self.assertRaises(
+            rpx.RepexError, rpx.handle_path, p, verbose=True)
+        self.assertIn('"to_file" requires explicit "path"', ex.message)
+
+    def test_file_does_not_exist(self):
+        file = {
+            'path': 'MISSING_FILE',
+            'match': '3.1.0-m2',
+            'replace': '3.1.0',
+            'with': '',
+            'validate_before': True
+        }
+        result = rpx.handle_file(file, verbose=True)
+        self.assertFalse(result)
 
     def test_iterate_multiple_files(self):
         v = {

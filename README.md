@@ -82,11 +82,11 @@ IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or the
 ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this: {{ .VER_NAME }}
 Don't forget the spaces!
 
-- `variables` is a dict of variables you can use throughout the config (using the API, you can also send the dictionary rather the hard code it into the config.yaml, which is obviously the more common use case.) `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions.
+- `variables` is a dict of variables you can use throughout the config. `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions. `variables` can be sent to one of the 3 basic functions described below.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
-- `base_directory` is the directory from which you'd like to start the recursive search for files.
+- `base_directory` is the directory from which you'd like to start the recursive search for files. If `path` is a path to a file, this property can be omitted. Alternatively, you can set the `base_directory` and a `path` relative to it.
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way to replace strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.
 - `replace` - which regex would you like to replace?
 - `with` - what you replace with.

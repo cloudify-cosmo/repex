@@ -184,7 +184,7 @@ def iterate(configfile, variables=None, verbose=False):
         handle_path(path, variables, verbose)
 
 
-def handle_path(p, variables, verbose=False):
+def handle_path(p, variables=None, verbose=False):
     """iterates over all files in p['path']
 
     :param dict p: a dict of a specific path in the config
@@ -197,10 +197,11 @@ def handle_path(p, variables, verbose=False):
         raise RuntimeError('variables must be of type dict')
     var_expander = VarHandler(verbose)
     p = var_expander.expand(variables, p)
-    if os.path.isfile(p['path']):
-        if p.get('base_directory'):
-            repex_lgr.info(
-                'base_directory is irrelevant when dealing with single files')
+    p['base_directory'] = p.get('base_directory', '')
+    repex_lgr.debug('path to process: {0}'.format(
+        os.path.join(p['base_directory'], p['path'])))
+    if os.path.isfile(os.path.join(p['base_directory'], p['path'])):
+        p['path'] = os.path.join(p['base_directory'], p['path'])
         handle_file(p, variables, verbose)
     else:
         if p.get('to_file'):
@@ -225,6 +226,12 @@ def handle_file(f, variables=None, verbose=False):
     :param bool verbose: verbose output flag
     """
     _set_global_verbosity_level(verbose)
+    variables = variables if variables else {}
+    if type(variables) is not dict:
+        raise RuntimeError('variables must be of type dict')
+    if not os.path.isfile(f['path']):
+        repex_lgr.error('file not found: {0}'.format(f['path']))
+        return False
     p = Repex(
         f['path'],
         f['match'],

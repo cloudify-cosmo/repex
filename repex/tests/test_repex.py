@@ -20,7 +20,7 @@ import repex.logger as logger
 
 import testtools
 import os
-from testfixtures import log_capture
+from testfixtures import LogCapture
 import logging
 
 
@@ -54,21 +54,21 @@ EXCLUDED_DIRS = [
 
 class TestBase(testtools.TestCase):
 
-    @log_capture()
-    def test_set_global_verbosity_level(self, capture):
+    def test_set_global_verbosity_level(self):
         lgr = logger.init(base_level=logging.INFO)
 
-        rpx._set_global_verbosity_level(is_verbose_output=False)
-        lgr.debug('TEST_LOGGER_OUTPUT')
-        capture.check()
-        lgr.info('TEST_LOGGER_OUTPUT')
-        capture.check(('user', 'INFO', 'TEST_LOGGER_OUTPUT'))
+        with LogCapture() as l:
+            rpx._set_global_verbosity_level(is_verbose_output=False)
+            lgr.debug('TEST_LOGGER_OUTPUT')
+            l.check()
+            lgr.info('TEST_LOGGER_OUTPUT')
+            l.check(('user', 'INFO', 'TEST_LOGGER_OUTPUT'))
 
-        rpx._set_global_verbosity_level(is_verbose_output=True)
-        lgr.debug('TEST_LOGGER_OUTPUT')
-        capture.check(
-            ('user', 'INFO', 'TEST_LOGGER_OUTPUT'),
-            ('user', 'DEBUG', 'TEST_LOGGER_OUTPUT'))
+            rpx._set_global_verbosity_level(is_verbose_output=True)
+            lgr.debug('TEST_LOGGER_OUTPUT')
+            l.check(
+                ('user', 'INFO', 'TEST_LOGGER_OUTPUT'),
+                ('user', 'DEBUG', 'TEST_LOGGER_OUTPUT'))
 
     def test_import_config_file(self):
         outcome = rpx.import_config(MOCK_CONFIG_FILE)
@@ -216,6 +216,7 @@ class TestBase(testtools.TestCase):
 
     def test_to_file_requires_explicit_path(self):
         p = {
+            'type': 'x',
             'path': TEST_RESOURCES_DIR_PATTERN,
             'base_directory': '',
             'match': '3.1.0-m2',
@@ -319,3 +320,31 @@ class TestBase(testtools.TestCase):
         self.assertEquals(len(MOCK_YAML_FILES), len(files))
         for f in MOCK_YAML_FILES:
             self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
+
+    def test_type_with_path_config(self):
+        p = {
+            'type': 'x',
+            'path': MOCK_TEST_FILE,
+            'base_directory': '',
+            'match': '3.1.0-m2',
+            'replace': '3.1.0-m2',
+            'with': '3.1.0-m3',
+            'to_file': '/x.x',
+            'validate_before': True
+        }
+        ex = self.assertRaises(
+            rpx.RepexError, rpx.handle_path, p, verbose=True)
+        self.assertIn('if `type` is specified', ex.message)
+
+    def test_single_file_not_found(self):
+        p = {
+            'path': 'x',
+            'base_directory': '',
+            'match': '3.1.0-m2',
+            'replace': '3.1.0-m2',
+            'with': '3.1.0-m3',
+            'validate_before': True
+        }
+        ex = self.assertRaises(
+            rpx.RepexError, rpx.handle_path, p, verbose=True)
+        self.assertIn('file not found', ex.message)

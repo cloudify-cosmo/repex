@@ -1,6 +1,6 @@
 paths:
     -   type: VERSION
-        path: resources
+        path: resources/VERSION
         excluded:
             - excluded_file.file
         base_directory: '{{ .base_dir }}'

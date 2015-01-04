@@ -82,8 +82,8 @@ class TestBase(testtools.TestCase):
             ex.message, codes.mapping['cannot_access_config_file'])
 
     def test_import_bad_config_file_mapping(self):
-        ex = self.assertRaises(Exception, rpx.import_config, BAD_CONFIG_FILE)
-        self.assertIn(codes.mapping['invalid_yaml_file'], ex.message)
+        ex = self.assertRaises(SystemExit, rpx.import_config, BAD_CONFIG_FILE)
+        self.assertEqual(codes.mapping['invalid_yaml_file'], ex.message)
 
     def test_iterate_no_config_supplied(self):
         ex = self.assertRaises(TypeError, rpx.iterate)
@@ -189,7 +189,7 @@ class TestBase(testtools.TestCase):
         try:
             rpx.handle_file(file, verbose=True)
         except SystemExit as ex:
-            self.assertEqual(str(ex), 'prevalidation failed')
+            self.assertEqual(ex.message, codes.mapping['prevalidation_failed'])
 
     def test_path_with_and_without_base_directory(self):
         p = {
@@ -229,7 +229,7 @@ class TestBase(testtools.TestCase):
         }
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
-        self.assertIn(
+        self.assertEquals(
             codes.mapping['to_file_requires_explicit_path'], ex.message)
 
     def test_file_does_not_exist(self):
@@ -305,7 +305,7 @@ class TestBase(testtools.TestCase):
             SystemExit, rpx.get_all_files,
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN,
             TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
-        self.assertIn(
+        self.assertEqual(
             codes.mapping['excluded_paths_must_be_a_list'], ex.message)
 
     def test_get_all_mock_version_files(self):
@@ -338,7 +338,7 @@ class TestBase(testtools.TestCase):
         }
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
-        self.assertIn(codes.mapping['type_path_collision'], ex.message)
+        self.assertEqual(codes.mapping['type_path_collision'], ex.message)
 
     def test_single_file_not_found(self):
         p = {
@@ -351,4 +351,4 @@ class TestBase(testtools.TestCase):
         }
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
-        self.assertIn(codes.mapping['file_not_found'], ex.message)
+        self.assertEqual(codes.mapping['file_not_found'], ex.message)

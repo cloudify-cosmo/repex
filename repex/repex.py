@@ -4,6 +4,9 @@ import os
 import re
 import yaml
 import shutil
+import sys
+
+import codes
 
 DEFAULT_CONFIG_FILE = 'config.yml'
 DEFAULT_VALIDATE_BEFORE = True
@@ -42,11 +45,13 @@ def import_config(config_file):
         with open(config_file, 'r') as c:
             return yaml.safe_load(c.read())
     except IOError as ex:
-        lgr.error(str(ex))
-        raise RuntimeError('cannot access config file')
-    except yaml.parser.ParserError as ex:
-        lgr.error('invalid yaml file: {0}'.format(ex))
-        raise RuntimeError('invalid yaml file')
+        lgr.error(ex.message)
+        lgr.error('Cannot access config file')
+        sys.exit(codes.mapping['cannot_access_config_file'])
+    except (yaml.parser.ParserError, yaml.scanner.ScannerError) as ex:
+        lgr.error(ex.message)
+        lgr.error('Invalid yaml file')
+        sys.exit(codes.mapping['invalid_yaml_file'])
 
 
 def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
@@ -55,9 +60,9 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     excluded_paths = excluded_paths if excluded_paths else []
     lgr.debug('excluded paths: {0}'.format(excluded_paths))
     if type(excluded_paths) is not list:
-        raise RepexError(
-            'excluded_paths must be of type list (not {0})'.format(
-                type(excluded_paths)))
+        lgr.error('excluded_paths must be of type list (not {0})'.format(
+            type(excluded_paths)))
+        sys.exit(codes.mapping['excluded_paths_must_be_a_list'])
     lgr.info('looking for {0}\'s under {1} in {2}'.format(
         file_name_regex, path, base_dir))
     dirs = []
@@ -153,7 +158,7 @@ class VarHandler():
                 string))
             if re.search('{{ ' + '.{0}'.format(variable) + ' }}', string):
                 lgr.error('string {0} failed to expand'.format(string))
-                raise RepexError('string failed to expand')
+                sys.exit(codes.mapping['string_failed_to_expand'])
 
         var = "{{ " + ".{0}".format(variable) + " }}"
         if re.search(var, in_string):
@@ -178,7 +183,8 @@ def iterate(configfile, variables=None, verbose=False):
     try:
         paths = config['paths']
     except TypeError:
-        raise RepexError('no paths configured')
+        lgr.error('No paths configured in yaml.')
+        sys.exit(codes.mapping['no_paths_configured'])
 
     for path in paths:
         handle_path(path, variables, verbose)
@@ -206,14 +212,16 @@ def handle_path(p, variables=None, verbose=False):
             p['path'] = path_to_handle
             handle_file(p, variables, verbose)
         else:
-            raise RepexError('file not found: {0}'.format(path_to_handle))
+            lgr.error('file not found: {0}'.format(path_to_handle))
+            sys.exit(codes.mapping['file_not_found'])
     else:
         if os.path.isfile(path_to_handle):
-            raise RepexError('if `type` is specified, `path` must not be a '
-                             'path to a single file.')
+            lgr.error('if `type` is specified, `path` must not be a '
+                      'path to a single file.')
+            sys.exit(codes.mapping['type_path_collision'])
         if p.get('to_file'):
-            raise RepexError(
-                '"to_file" requires explicit "path"')
+            lgr.error('"to_file" requires explicit "path"')
+            sys.exit(codes.mapping['to_file_requires_explicit_path'])
         files = get_all_files(
             p['type'], p['path'], p['base_directory'],
             p.get('excluded', []), verbose)
@@ -251,10 +259,12 @@ def handle_file(f, variables=None, verbose=False):
     lgr.debug('vars: {0}'.format(variables))
     validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
     if not isinstance(validate_before, bool):
-        raise RepexError('validate_before must be either of type boolean')
+        lgr.error('validate_before must be of type boolean')
+        sys.exit(codes.mapping['validate_before_must_be_boolean'])
     must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
     if validate_before and not p.validate_before(must_include=must_include):
-        raise RepexError('prevalidation failed')
+        lgr.error('prevalidation failed')
+        sys.exit(codes.mapping['prevalidation_failed'])
     matches = p.find_matches()
     p.replace(matches)
 

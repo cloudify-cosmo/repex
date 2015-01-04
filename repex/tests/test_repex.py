@@ -17,6 +17,7 @@ __author__ = 'nir0s'
 
 import repex.repex as rpx
 import repex.logger as logger
+import repex.codes as codes
 
 import testtools
 import os
@@ -76,12 +77,13 @@ class TestBase(testtools.TestCase):
         self.assertIn('paths', outcome.keys())
 
     def test_fail_import_config_file(self):
-        ex = self.assertRaises(RuntimeError, rpx.import_config, '')
-        self.assertEquals(str(ex), 'cannot access config file')
+        ex = self.assertRaises(SystemExit, rpx.import_config, '')
+        self.assertEquals(
+            ex.message, codes.mapping['cannot_access_config_file'])
 
     def test_import_bad_config_file_mapping(self):
-        ex = self.assertRaises(Exception, rpx.import_config, BAD_CONFIG_FILE)
-        self.assertIn('mapping values are not allowed here', str(ex))
+        ex = self.assertRaises(SystemExit, rpx.import_config, BAD_CONFIG_FILE)
+        self.assertEqual(codes.mapping['invalid_yaml_file'], ex.message)
 
     def test_iterate_no_config_supplied(self):
         ex = self.assertRaises(TypeError, rpx.iterate)
@@ -89,8 +91,8 @@ class TestBase(testtools.TestCase):
 
     def test_iterate_no_files(self):
         ex = self.assertRaises(
-            rpx.RepexError, rpx.iterate, EMPTY_CONFIG_FILE)
-        self.assertEqual(str(ex), 'no paths configured')
+            SystemExit, rpx.iterate, EMPTY_CONFIG_FILE)
+        self.assertEqual(codes.mapping['no_paths_configured'], ex.message)
 
     def test_iterate(self):
         output_file = MOCK_TEST_FILE + '.test'
@@ -156,8 +158,8 @@ class TestBase(testtools.TestCase):
         }
         try:
             rpx.handle_file(file, verbose=True)
-        except rpx.RepexError as ex:
-            self.assertEqual(str(ex), 'prevalidation failed')
+        except SystemExit as ex:
+            self.assertEqual(codes.mapping['prevalidation_failed'], ex.message)
 
     def test_file_no_permissions_to_write_to_file(self):
         file = {
@@ -186,8 +188,8 @@ class TestBase(testtools.TestCase):
         }
         try:
             rpx.handle_file(file, verbose=True)
-        except rpx.RepexError as ex:
-            self.assertEqual(str(ex), 'prevalidation failed')
+        except SystemExit as ex:
+            self.assertEqual(ex.message, codes.mapping['prevalidation_failed'])
 
     def test_path_with_and_without_base_directory(self):
         p = {
@@ -226,8 +228,9 @@ class TestBase(testtools.TestCase):
             'validate_before': True
         }
         ex = self.assertRaises(
-            rpx.RepexError, rpx.handle_path, p, verbose=True)
-        self.assertIn('"to_file" requires explicit "path"', ex.message)
+            SystemExit, rpx.handle_path, p, verbose=True)
+        self.assertEquals(
+            codes.mapping['to_file_requires_explicit_path'], ex.message)
 
     def test_file_does_not_exist(self):
         file = {
@@ -299,10 +302,11 @@ class TestBase(testtools.TestCase):
 
     def test_get_all_files_excluded_list_is_str(self):
         ex = self.assertRaises(
-            rpx.RepexError, rpx.get_all_files,
+            SystemExit, rpx.get_all_files,
             'mock_VERSION', TEST_RESOURCES_DIR_PATTERN,
             TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
-        self.assertIn('excluded_paths must be of type list', str(ex))
+        self.assertEqual(
+            codes.mapping['excluded_paths_must_be_a_list'], ex.message)
 
     def test_get_all_mock_version_files(self):
         files = rpx.get_all_files(
@@ -333,8 +337,8 @@ class TestBase(testtools.TestCase):
             'validate_before': True
         }
         ex = self.assertRaises(
-            rpx.RepexError, rpx.handle_path, p, verbose=True)
-        self.assertIn('if `type` is specified', ex.message)
+            SystemExit, rpx.handle_path, p, verbose=True)
+        self.assertEqual(codes.mapping['type_path_collision'], ex.message)
 
     def test_single_file_not_found(self):
         p = {
@@ -346,5 +350,5 @@ class TestBase(testtools.TestCase):
             'validate_before': True
         }
         ex = self.assertRaises(
-            rpx.RepexError, rpx.handle_path, p, verbose=True)
-        self.assertIn('file not found', ex.message)
+            SystemExit, rpx.handle_path, p, verbose=True)
+        self.assertEqual(codes.mapping['file_not_found'], ex.message)

@@ -84,7 +84,7 @@ Don't forget the spaces!
 
 - `variables` is a dict of variables you can use throughout the config. `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions. `variables` can be sent to one of the 3 basic functions described below.
 - `type` is a regex string representing the file name you're looking for.
-- `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*")
+- `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*"). If `path` is a path to a single file, the `type` attribute must not be configured.
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
 - `base_directory` is the directory from which you'd like to start the recursive search for files. If `path` is a path to a file, this property can be omitted. Alternatively, you can set the `base_directory` and a `path` relative to it.
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way to replace strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.

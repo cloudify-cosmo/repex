@@ -188,7 +188,7 @@ class TestBase(testtools.TestCase):
         }
         try:
             rpx.handle_file(file, verbose=True)
-        except rpx.RepexError as ex:
+        except SystemExit as ex:
             self.assertEqual(str(ex), 'prevalidation failed')
 
     def test_path_with_and_without_base_directory(self):

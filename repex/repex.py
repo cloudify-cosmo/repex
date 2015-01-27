@@ -142,6 +142,8 @@ class VarHandler():
         for var, value in vars.items():
             for attribute in attributes.keys():
                 if isinstance(attributes[attribute], str):
+                    # TODO: Handle cases where var is referenced
+                    # TODO: but not defined
                     attributes[attribute] = self.expand_var(
                         var, vars[var], attributes[attribute])
         return attributes
@@ -180,14 +182,20 @@ def iterate(configfile, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     config = import_config(configfile)
+    variables = variables if variables else {}
+    if type(variables) is not dict:
+        raise RuntimeError('variables must be of type dict')
     try:
         paths = config['paths']
     except TypeError:
         lgr.error('No paths configured in yaml.')
         sys.exit(codes.mapping['no_paths_configured'])
+    vars = config.get('variables', {})
+    vars.update(variables)
+    lgr.debug('Variables: {0}'.format(vars))
 
     for path in paths:
-        handle_path(path, variables, verbose)
+        handle_path(path, vars, verbose)
 
 
 def handle_path(p, variables=None, verbose=False):
@@ -199,8 +207,6 @@ def handle_path(p, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
-    if type(variables) is not dict:
-        raise RuntimeError('variables must be of type dict')
     var_expander = VarHandler(verbose)
     p = var_expander.expand(variables, p)
     p['base_directory'] = p.get('base_directory', '')

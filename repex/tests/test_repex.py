@@ -91,7 +91,7 @@ class TestBase(testtools.TestCase):
 
     def test_iterate_no_files(self):
         ex = self.assertRaises(
-            SystemExit, rpx.iterate, EMPTY_CONFIG_FILE)
+            SystemExit, rpx.iterate, EMPTY_CONFIG_FILE, {})
         self.assertEqual(codes.mapping['no_paths_configured'], ex.message)
 
     def test_iterate(self):
@@ -108,6 +108,13 @@ class TestBase(testtools.TestCase):
         rpx.iterate(MOCK_CONFIG_FILE, v)
         with open(output_file) as f:
             self.assertIn('3.1.0-m3', f.read())
+        os.remove(output_file)
+
+    def test_iterate_with_vars_in_config(self):
+        output_file = MOCK_TEST_FILE + '.test'
+        rpx.iterate(MOCK_CONFIG_FILE)
+        with open(output_file) as f:
+            self.assertIn('3.1.0-m4', f.read())
         os.remove(output_file)
 
     def test_iterate_variables_not_dict(self):

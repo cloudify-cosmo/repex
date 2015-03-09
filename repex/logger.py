@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-import logging.config
+import dictconfig
 
 DEFAULT_BASE_LOGGING_LEVEL = logging.INFO
 DEFAULT_VERBOSE_LOGGING_LEVEL = logging.DEBUG
@@ -69,7 +69,7 @@ def init(base_level=DEFAULT_BASE_LOGGING_LEVEL,
     try:
         if not os.path.exists(log_dir) and not len(log_dir) == 0:
             os.makedirs(log_dir)
-        logging.config.dictConfig(logging_config)
+        dictconfig.dictConfig(logging_config)
         lgr = logging.getLogger('user')
         lgr.setLevel(base_level)
         return lgr

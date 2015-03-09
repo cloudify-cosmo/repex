@@ -38,7 +38,7 @@ def import_config(config_file):
     :param string config_file: path to config file
     """
     # get config file path
-    lgr.debug('config file is: {}'.format(config_file))
+    lgr.debug('config file is: {0}'.format(config_file))
     # append to path for importing
     try:
         lgr.info('importing config...')

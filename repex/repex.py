@@ -59,7 +59,7 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     _set_global_verbosity_level(verbose)
     excluded_paths = excluded_paths if excluded_paths else []
     lgr.debug('excluded paths: {0}'.format(excluded_paths))
-    if type(excluded_paths) is not list:
+    if not isinstance(excluded_paths, list):
         lgr.error('excluded_paths must be of type list (not {0})'.format(
             type(excluded_paths)))
         sys.exit(codes.mapping['excluded_paths_must_be_a_list'])
@@ -183,7 +183,7 @@ def iterate(configfile, variables=None, verbose=False):
     _set_global_verbosity_level(verbose)
     config = import_config(configfile)
     variables = variables if variables else {}
-    if type(variables) is not dict:
+    if not isinstance(variables, dict):
         raise RuntimeError('variables must be of type dict')
     try:
         paths = config['paths']
@@ -249,7 +249,7 @@ def handle_file(f, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
-    if type(variables) is not dict:
+    if not isinstance(variables, dict):
         raise RuntimeError('variables must be of type dict')
     if not os.path.isfile(f['path']):
         lgr.error('file not found: {0}'.format(f['path']))

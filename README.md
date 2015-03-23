@@ -19,7 +19,11 @@ AND, you can use variables (sorta jinja2 style). How cool is that? See reference
 
 ### Installation
 
-Currently, repex is not in pypi, so you'll have to install it directly from Github:
+```shell
+pip install repex
+```
+
+For dev:
 
 ```shell
 pip install https://github.com/cloudify-cosmo/repex/archive/master.tar.gz
@@ -44,6 +48,9 @@ And you'd like to replace 3.1.0-m2 with 3.1.0-m3 in all of those files
 You would create a repex config.yaml with the following:
 
 ```yaml
+
+variables:
+    base_dir: .
 
 paths:
     -   type: VERSION
@@ -73,7 +80,6 @@ VERSION = os.environ['VERSION']  # '3.1.0-m3'
 
 variables = {
     'version': VERSION,
-    'base_dir': .
 }
 
 rpx.iterate(CONFIG_YAML_FILE, variables)
@@ -87,7 +93,7 @@ IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or the
 ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this: {{ .VER_NAME }}
 Don't forget the spaces!
 
-- `variables` is a dict of variables you can use throughout the config. `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions. `variables` can be sent to one of the 3 basic functions described below.
+- `variables` is a dict of variables you can use throughout the config. `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions. `variables` can be sent to one of the 3 basic functions described below or by being hardcoded into the yaml. Variables with the same name sent via the API will override the hardcoded ones.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*"). If `path` is a path to a single file, the `type` attribute must not be configured.
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
@@ -107,7 +113,9 @@ In case you're providing a path to a file rather than a directory:
 
 3 basic functions are provided:
 
-The following examples all perform the exact same function (`iterate`) but using the different provided methods.
+The following examples all perform the exact same function (`iterate`) but using the different provided methods for the sake of granularity.
+
+Note that under normal circumstanaces, you will not need to drill down into these and just use `iterate`.
 
 ##### iterate
 
@@ -151,8 +159,10 @@ variables = {
 
 # this is what iterate would do if it was called directly
 config = rpx.import_config(CONFIG_YAML_FILE)
+vars = config.get('variables', {})
+vars.update(variables)
 for p in config['paths']:
-    rpx.handle_path(p, variables, verbose=VERBOSE)
+    rpx.handle_path(p, vars, verbose=VERBOSE)
 
 ```
 
@@ -183,6 +193,8 @@ variables = {
 
 # this is what iterate would do if it was called directly
 config = rpx.import_config(CONFIG_YAML_FILE)
+vars = config.get('variables', {})
+vars.update(variables)
 for p in config['paths']:
     files = get_all_files(
         p['type'], p['path'], p['base_directory'], p['excluded'], , verbose=VERBOSE)
@@ -192,6 +204,6 @@ for p in config['paths']:
     p = var_expander.expand(variables)
     for file in files:
         p['path'] = file
-        rpx.handle_file(file, variables, verbose=VERBOSE)
+        rpx.handle_file(file, vars, verbose=VERBOSE)
 
 ```

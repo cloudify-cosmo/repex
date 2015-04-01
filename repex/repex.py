@@ -237,8 +237,11 @@ def handle_path(p, variables=None, verbose=False):
             handle_file(p, variables, verbose)
             if 'validator' in p and (p['validator']['type'] == 'per_file' or
                                      p['validator']['type'] == 'per_type'):
-                _validate(
+                validated = _validate(
                     validator, p['validator']['function'], p['path'])
+                if not validated:
+                    lgr.error('Failed to validate: {0}'.format(p['path']))
+                    sys.exit(codes.mapping['validator_failed'])
         else:
             lgr.error('file not found: {0}'.format(path_to_handle))
             sys.exit(codes.mapping['file_not_found'])
@@ -258,9 +261,17 @@ def handle_path(p, variables=None, verbose=False):
             p['path'] = f
             handle_file(p, variables, verbose)
             if 'validator' in p and p['validator']['type'] == 'per_file':
-                _validate(validator, p['validator']['function'], p['path'])
+                validated = _validate(
+                    validator, p['validator']['function'], p['path'])
+                if not validated:
+                    lgr.error('Failed to validate: {0}'.format(p['path']))
+                    sys.exit(codes.mapping['validator_failed'])
         if 'validator' in p and p['validator']['type'] == 'per_type':
-            _validate(validator, p['validator']['function'], p['path'])
+            validated = _validate(
+                validator, p['validator']['function'], p['path'])
+            if not validated:
+                lgr.error('Failed to validate: {0}'.format(p['path']))
+                sys.exit(codes.mapping['validator_failed'])
 
 
 def handle_file(f, variables=None, verbose=False):

@@ -5,6 +5,7 @@ import re
 import yaml
 import shutil
 import sys
+import imp
 
 import codes
 
@@ -30,6 +31,21 @@ def _set_global_verbosity_level(is_verbose_output=False):
     else:
         lgr.setLevel(logging.INFO)
     # print 'level is: ' + str(lgr.getEffectiveLevel())
+
+
+def _import_validator(validator_path):
+    lgr.debug('Importing validator: {0}'.format(validator_path))
+    return imp.load_source(os.path.basename(validator_path), validator_path)
+
+
+def _validate(validator, validating_function, file_path):
+    """Validates a file.
+    This will receive the `file_path` to validate and pass it
+    to the `validating_function` for execution.
+    """
+    lgr.info('Validating {0} using {1}...'.format(
+        file_path, validating_function))
+    getattr(validator, validating_function)(file_path)
 
 
 def import_config(config_file):
@@ -213,10 +229,16 @@ def handle_path(p, variables=None, verbose=False):
     lgr.debug('path to process: {0}'.format(
         os.path.join(p['base_directory'], p['path'])))
     path_to_handle = os.path.join(p['base_directory'], p['path'])
+    if 'validator' in p:
+        validator = _import_validator(p['validator']['path'])
     if not p.get('type'):
         if os.path.isfile(path_to_handle):
             p['path'] = path_to_handle
             handle_file(p, variables, verbose)
+            if 'validator' in p and (p['validator']['type'] == 'per_file' or
+                                     p['validator']['type'] == 'per_type'):
+                _validate(
+                    validator, p['validator']['function'], p['path'])
         else:
             lgr.error('file not found: {0}'.format(path_to_handle))
             sys.exit(codes.mapping['file_not_found'])
@@ -235,6 +257,10 @@ def handle_path(p, variables=None, verbose=False):
         for f in files:
             p['path'] = f
             handle_file(p, variables, verbose)
+            if 'validator' in p and p['validator']['type'] == 'per_file':
+                _validate(validator, p['validator']['function'], p['path'])
+        if 'validator' in p and p['validator']['type'] == 'per_type':
+            _validate(validator, p['validator']['function'], p['path'])
 
 
 def handle_file(f, variables=None, verbose=False):

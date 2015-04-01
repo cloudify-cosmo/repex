@@ -66,6 +66,10 @@ paths:
             - date
             - commit
             - version
+        validator:
+            type: per_file
+            path: my/validator/script/path.py
+            function: my_validation_function
 ```
 
 and do the following
@@ -103,6 +107,7 @@ Don't forget the spaces!
 - `with` - what you replace with.
 - `validate_before` - a flag stating that you'd like to validate that the pattern you're looking for exists in the file and that all strings in `must_include` exists in the file as well.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
+- `validator` - validator allows you to run a validation script after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every type of file; it receives a path to the script and a function within the script to call.
 
 In case you're providing a path to a file rather than a directory:
 
@@ -198,7 +203,8 @@ vars.update(variables)
 for p in config['paths']:
     files = get_all_files(
         p['type'], p['path'], p['base_directory'], p['excluded'], , verbose=VERBOSE)
-
+    # this will run the validator if applicable.
+    _validate_p['path']
     # this is what handle_path would do if it was called directly
     var_expander = rpx.VarHandler(p)
     p = var_expander.expand(variables)

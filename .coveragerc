@@ -1,0 +1,3 @@
+[run]
+omit = repex/dictconfig.py
+       repex/six.py

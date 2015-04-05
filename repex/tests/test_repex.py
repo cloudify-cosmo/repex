@@ -26,8 +26,10 @@ import logging
 TEST_RESOURCES_DIR = 'repex/tests/resources/'
 TEST_RESOURCES_DIR_PATTERN = 'repex/tests/resource.*'
 MOCK_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_files.yaml')
-MOCK_CONFIG_MULTIPLE_FILES = os.path.join(TEST_RESOURCES_DIR,
-                                          'mock_multiple_files.yaml')
+MOCK_CONFIG_MULTIPLE_FILES = os.path.join(
+    TEST_RESOURCES_DIR, 'mock_multiple_files.yaml')
+MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR = os.path.join(
+    TEST_RESOURCES_DIR, 'mock_files_with_failed_validator.yaml')
 TEST_FILE_NAME = 'mock_VERSION'
 MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, TEST_FILE_NAME)
 BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
@@ -357,3 +359,13 @@ class TestBase(testtools.TestCase):
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
         self.assertEqual(codes.mapping['file_not_found'], ex.message)
+
+    def test_validator(self):
+        output_file = MOCK_TEST_FILE + '.test'
+        v = {'version': '3.1.0-m3'}
+        ex = self.assertRaises(
+            SystemExit, rpx.iterate, MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR, v)
+        self.assertEqual(codes.mapping['validator_failed'], ex.message)
+        with open(output_file) as f:
+            self.assertIn('3.1.0-m3', f.read())
+        os.remove(output_file)

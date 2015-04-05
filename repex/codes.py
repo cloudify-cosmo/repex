@@ -9,5 +9,6 @@ mapping = {
     'to_file_requires_explicit_path': 8,
     'validate_before_must_be_boolean': 9,
     'prevalidation_failed': 10,
+    'validator_failed': 11,
 
 }

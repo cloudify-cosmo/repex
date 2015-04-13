@@ -72,6 +72,10 @@ You would create a repex config.yaml with the following:
                 - date
                 - commit
                 - version
+            validator:
+                type: per_file
+                path: my/validator/script/path.py
+                function: my_validation_function
 
 and do the following
 
@@ -89,6 +93,15 @@ and do the following
     }
 
     rpx.iterate(CONFIG_YAML_FILE, variables)
+
+and even add a validator file:
+
+.. code:: python
+
+
+    def my_validation_function(version_file_path):
+        result = verify_replacement()
+        return True if result else False
 
 Config yaml Explained
 ^^^^^^^^^^^^^^^^^^^^^
@@ -135,6 +148,14 @@ ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this:
    specify a set of regex based strings to look for to make sure that
    the files you're dealing with are the actual files you'd like to
    replace the expressions in.
+-  ``validator`` - validator allows you to run a validation function
+   after replacing expressions. It receives ``type`` which can be either
+   ``per_file`` or ``per_type`` where ``per_file`` runs the validation
+   on every file while ``per_type`` runs once for every ``type`` of
+   file; it receives a ``path`` to the script and a ``function`` within
+   the script to call. Note that each validation function must return
+   ``True`` if successful and ``False`` if failed. The validating
+   function receives the file's path as a parameter.
 
 In case you're providing a path to a file rather than a directory:
 
@@ -244,7 +265,8 @@ IMPORTANT:
     for p in config['paths']:
         files = get_all_files(
             p['type'], p['path'], p['base_directory'], p['excluded'], , verbose=VERBOSE)
-
+        # this will run the validator if applicable.
+        _validate(p['path'])
         # this is what handle_path would do if it was called directly
         var_expander = rpx.VarHandler(p)
         p = var_expander.expand(variables)

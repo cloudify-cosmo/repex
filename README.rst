@@ -1,5 +1,5 @@
-repex
-=====
+repex (REPlace (regular) EXpression)
+====================================
 
 -  Master Branch |Build Status|
 -  PyPI |PyPI|
@@ -72,6 +72,10 @@ You would create a repex config.yaml with the following:
                 - date
                 - commit
                 - version
+            validator:
+                type: per_file
+                path: my/validator/script/path.py
+                function: my_validation_function
 
 and do the following
 
@@ -90,6 +94,16 @@ and do the following
 
     rpx.iterate(CONFIG_YAML_FILE, variables)
 
+and even add a validator file:
+
+.. code:: python
+
+
+    def my_validation_function(version_file_path):
+        result = verify_replacement()
+        # True if result is yay! else False.
+        return result == 'yay! it passed!'
+
 Config yaml Explained
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -100,13 +114,7 @@ ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this:
 {{ .VER\_NAME }} Don't forget the spaces!
 
 -  ``variables`` is a dict of variables you can use throughout the
-   config. ``type``, ``path``, ``base_directory``, ``match``,
-   ``replace`` and ``with`` can all receive variables. For now, all
-   attributes which are not strings cannot receive variables. This might
-   change in future versions. ``variables`` can be sent to one of the 3
-   basic functions described below or by being hardcoded into the yaml.
-   Variables with the same name sent via the API will override the
-   hardcoded ones.
+   config. See below for more info.
 -  ``type`` is a regex string representing the file name you're looking
    for.
 -  ``path`` is a regex string representing the path in which you'd like
@@ -135,12 +143,64 @@ ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this:
    specify a set of regex based strings to look for to make sure that
    the files you're dealing with are the actual files you'd like to
    replace the expressions in.
+-  ``validator`` - validator allows you to run a validation function
+   after replacing expressions. It receives ``type`` which can be either
+   ``per_file`` or ``per_type`` where ``per_file`` runs the validation
+   on every file while ``per_type`` runs once for every ``type`` of
+   file; it receives a ``path`` to the script and a ``function`` within
+   the script to call. Note that each validation function must return
+   ``True`` if successful and ``False`` if failed. The validating
+   function receives the file's path as a parameter.
 
 In case you're providing a path to a file rather than a directory:
 
 -  ``type`` and ``base_directory`` are depracated
 -  you can provide a ``to_file`` key with the path to the file you'd
    like to create after replacing.
+
+Variables
+^^^^^^^^^
+
+Variables are one of the strongest features of repex. They provide a way
+of injecting dynamic info to the config file.
+
+Variables can be declared in 3 ways: - Harcoded in the config under a
+top level ``variables`` section. - Provided via the API. - Set as
+Environment Variables.
+
+Variables are configured like so:
+
+.. code:: yaml
+
+
+    variables:
+        base_dir: .
+        regex: \d+\.\d+(\.\d+)?(-\w\d+)?
+
+    paths:
+        -   type: VERSION
+            ...
+            base_directory: "{{ .base_dir }}"
+            match: '"version": {{ .regex }}"'
+            replace: "{{ .regex }}"
+            with: "{{ .version }}"
+            ...
+
+Some important facts about variables:
+
+-  ``type``, ``path``, ``base_directory``, ``match``, ``replace`` and
+   ``with`` can all receive variables.
+-  For now, all attributes which are not strings cannot receive
+   variables. This might change in future versions.
+-  Variables with the same name sent via the API will override the
+   hardcoded ones.
+-  API provided or hardcoded variables can be overriden if env vars
+   exist with the same name but in upper case (so the variable "version"
+   can be overriden by an env var called "VERSION".) This can help with,
+   for example, using the $BUILD\_NUMBER env var in Jenkins to update a
+   file with the new build number. This of course means that you HAVE TO
+   make sure you don't use variables with names of known env vars (e.g.
+   PATH :))
 
 Basic Functions
 ^^^^^^^^^^^^^^^
@@ -244,7 +304,8 @@ IMPORTANT:
     for p in config['paths']:
         files = get_all_files(
             p['type'], p['path'], p['base_directory'], p['excluded'], , verbose=VERBOSE)
-
+        # this will run the validator if applicable.
+        _validate(p['path'])
         # this is what handle_path would do if it was called directly
         var_expander = rpx.VarHandler(p)
         p = var_expander.expand(variables)

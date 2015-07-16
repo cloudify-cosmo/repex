@@ -90,6 +90,17 @@ rpx.iterate(CONFIG_YAML_FILE, variables)
 
 ```
 
+and even add a validator file:
+
+```python
+
+def my_validation_function(version_file_path):
+    result = verify_replacement()
+    # True if result is yay! else False.
+    return result == 'yay! it passed!'
+
+```
+
 #### Config yaml Explained
 
 IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or they will not expand! Might fix that in future versions...
@@ -107,7 +118,7 @@ Don't forget the spaces!
 - `with` - what you replace with.
 - `validate_before` - a flag stating that you'd like to validate that the pattern you're looking for exists in the file and that all strings in `must_include` exists in the file as well.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
-- `validator` - validator allows you to run a validation script after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful and `False` if failed.
+- `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful and `False` if failed. The validating function receives the file's path as a parameter.
 
 In case you're providing a path to a file rather than a directory:
 

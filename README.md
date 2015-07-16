@@ -179,7 +179,7 @@ import os
 import repex.repex as rpx
 
 CONFIG_YAML_FILE = "tester.yaml"
-VERSION = os.environ['VERSION']  # '3.1.0-m3'
+VERSION = '3.1.0-m3'
 VERBOSE = True
 
 variables = {

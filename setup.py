@@ -40,7 +40,6 @@ setup(
     name='repex',
     version=find_version('repex', '__init__.py'),
     url='https://github.com/cloudify-cosmo/repex',
-    download_url='https://github.com/cloudify-cosmo/repex/tarball/0.1',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',
     license='LICENSE',
@@ -54,7 +53,6 @@ setup(
         ]
     },
     install_requires=[
-        "docopt==.0.6.1",
         "pyyaml==3.10",
     ],
     tests_require=['nose', 'tox'],

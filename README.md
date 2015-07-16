@@ -1,5 +1,5 @@
-repex
-=======
+repex (REPlace (regular) EXpression)
+====================================
 
 * Master Branch [![Build Status](https://travis-ci.org/cloudify-cosmo/repex.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/repex)
 * PyPI [![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
@@ -97,7 +97,7 @@ IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or the
 ANOTHER IMPORTANT NOTE: variables must be structured EXACTLY like this: {{ .VER_NAME }}
 Don't forget the spaces!
 
-- `variables` is a dict of variables you can use throughout the config. `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables. For now, all attributes which are not strings cannot receive variables. This might change in future versions. `variables` can be sent to one of the 3 basic functions described below or by being hardcoded into the yaml. Variables with the same name sent via the API will override the hardcoded ones.
+- `variables` is a dict of variables you can use throughout the config. See below for more info.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*"). If `path` is a path to a single file, the `type` attribute must not be configured.
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
@@ -113,6 +113,42 @@ In case you're providing a path to a file rather than a directory:
 
 - `type` and `base_directory` are depracated
 - you can provide a `to_file` key with the path to the file you'd like to create after replacing.
+
+
+#### Variables
+
+Variables are one of the strongest features of repex. They provide a way of injecting dynamic info to the config file.
+
+Variables can be declared in 3 ways:
+- Harcoded in the config under a top level `variables` section.
+- Provided via the API.
+- Set as Environment Variables.
+
+Variables are configured like so:
+
+```yaml
+
+variables:
+    base_dir: .
+    regex: \d+\.\d+(\.\d+)?(-\w\d+)?
+
+paths:
+    -   type: VERSION
+        ...
+        base_directory: "{{ .base_dir }}"
+        match: '"version": {{ .regex }}"'
+        replace: "{{ .regex }}"
+        with: "{{ .version }}"
+        ...
+```
+
+Some important facts about variables:
+
+- `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables.
+- For now, all attributes which are not strings cannot receive variables. This might change in future versions.
+- Variables with the same name sent via the API will override the hardcoded ones.
+- API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case (so the variable "version" can be overriden by an env var called "VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number. This of course means that you HAVE TO make sure you don't use variables with names of known env vars (e.g. PATH :))
+
 
 #### Basic Functions
 

@@ -208,6 +208,8 @@ def iterate(configfile, variables=None, verbose=False):
         sys.exit(codes.mapping['no_paths_configured'])
     vars = config.get('variables', {})
     vars.update(variables)
+    for var, value in vars.items():
+        vars[var] = os.environ.get(var.upper(), value)
     lgr.debug('Variables: {0}'.format(vars))
 
     for path in paths:

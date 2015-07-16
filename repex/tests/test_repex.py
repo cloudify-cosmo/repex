@@ -97,25 +97,43 @@ class TestBase(testtools.TestCase):
     def test_iterate(self):
         output_file = MOCK_TEST_FILE + '.test'
         v = {'version': '3.1.0-m3'}
-        rpx.iterate(MOCK_CONFIG_FILE, v)
-        with open(output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
-        os.remove(output_file)
+        try:
+            rpx.iterate(MOCK_CONFIG_FILE, v)
+            with open(output_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        finally:
+            os.remove(output_file)
 
     def test_iterate_with_vars(self):
         output_file = MOCK_TEST_FILE + '.test'
         v = {'version': '3.1.0-m3'}
-        rpx.iterate(MOCK_CONFIG_FILE, v)
-        with open(output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
-        os.remove(output_file)
+        try:
+            rpx.iterate(MOCK_CONFIG_FILE, v)
+            with open(output_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        finally:
+            os.remove(output_file)
 
     def test_iterate_with_vars_in_config(self):
         output_file = MOCK_TEST_FILE + '.test'
-        rpx.iterate(MOCK_CONFIG_FILE)
-        with open(output_file) as f:
-            self.assertIn('3.1.0-m4', f.read())
-        os.remove(output_file)
+        try:
+            rpx.iterate(MOCK_CONFIG_FILE)
+            with open(output_file) as f:
+                self.assertIn('3.1.0-m4', f.read())
+        finally:
+            os.remove(output_file)
+
+    def test_env_var_based_replacement(self):
+        output_file = MOCK_TEST_FILE + '.test'
+        v = {'version': '3.1.0-m3'}
+        os.environ['VERSION'] = '3.1.0-m9'
+        try:
+            rpx.iterate(MOCK_CONFIG_FILE, v)
+            with open(output_file) as f:
+                self.assertIn('3.1.0-m9', f.read())
+        finally:
+            os.remove(output_file)
+            os.environ.pop('VERSION')
 
     def test_iterate_variables_not_dict(self):
         ex = self.assertRaises(
@@ -363,9 +381,12 @@ class TestBase(testtools.TestCase):
     def test_validator(self):
         output_file = MOCK_TEST_FILE + '.test'
         v = {'version': '3.1.0-m3'}
-        ex = self.assertRaises(
-            SystemExit, rpx.iterate, MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR, v)
-        self.assertEqual(codes.mapping['validator_failed'], ex.message)
-        with open(output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
-        os.remove(output_file)
+        try:
+            ex = self.assertRaises(
+                SystemExit, rpx.iterate,
+                MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR, v)
+            self.assertEqual(codes.mapping['validator_failed'], ex.message)
+            with open(output_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        finally:
+            os.remove(output_file)

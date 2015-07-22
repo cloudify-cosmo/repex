@@ -1,5 +1,6 @@
-[33mf25da66[m[33m ([1;36mHEAD[m[33m, [1;31morigin/minor-fixes[m[33m, [1;32mminor-fixes[m[33m)[m updated version to 0.1.2 and updated readme
-[33m2c8149e[m[33m ([1;31morigin/master[m[33m, [1;31morigin/HEAD[m[33m, [1;32mmaster[m[33m)[m Merge branch 'master' of github.com:cloudify-cosmo/repex
+[33m5cadbce[m[33m ([1;36mHEAD[m[33m, [1;31morigin/CFY-3170-add-env-var-support[m[33m, [1;32mCFY-3170-add-env-var-support[m[33m)[m updated version to 0.2.0!
+[33m6e9f541[m[33m ([1;31morigin/add-env-var-support[m[33m, [1;32madd-env-var-support[m[33m)[m added env var support for providing variables to repex
+[33m2c8149e[m Merge branch 'master' of github.com:cloudify-cosmo/repex
 [33m465ae01[m updated version to 0.1.1
 [33md0f2e51[m Merge pull request #8 from cloudify-cosmo/add-validator-option
 [33m42c41df[m[33m ([1;31morigin/add-validator-option[m[33m)[m Merge branch 'master' into add-validator-option

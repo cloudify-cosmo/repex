@@ -13,6 +13,7 @@ DEFAULT_CONFIG_FILE = 'config.yml'
 DEFAULT_VALIDATE_BEFORE = True
 DEFAULT_VALIDATE_AFTER = False
 DEFAULT_MUST_INCLUDE = []
+REPEX_VAR_PREFIX = 'REPEX_VAR_'
 
 lgr = logger.init()
 verbose_output = False
@@ -24,13 +25,11 @@ def _set_global_verbosity_level(is_verbose_output=False):
     :param bool is_verbose_output: should be output be verbose
     """
     global verbose_output
-    # TODO: (IMPRV) only raise exceptions in verbose mode
     verbose_output = is_verbose_output
     if verbose_output:
         lgr.setLevel(logging.DEBUG)
     else:
         lgr.setLevel(logging.INFO)
-    # print 'level is: ' + str(lgr.getEffectiveLevel())
 
 
 def _import_validator(validator_path):
@@ -208,8 +207,9 @@ def iterate(configfile, variables=None, verbose=False):
         sys.exit(codes.mapping['no_paths_configured'])
     vars = config.get('variables', {})
     vars.update(variables)
-    for var, value in vars.items():
-        vars[var] = os.environ.get(var.upper(), value)
+    for var, value in os.environ.items():
+        if var.startswith(REPEX_VAR_PREFIX):
+            vars[var.replace(REPEX_VAR_PREFIX, '').lower()] = value
     lgr.debug('Variables: {0}'.format(vars))
 
     for path in paths:

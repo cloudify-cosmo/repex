@@ -126,14 +126,14 @@ class TestBase(testtools.TestCase):
     def test_env_var_based_replacement(self):
         output_file = MOCK_TEST_FILE + '.test'
         v = {'version': '3.1.0-m3'}
-        os.environ['VERSION'] = '3.1.0-m9'
+        os.environ['REPEX_VAR_VERSION'] = '3.1.0-m9'
         try:
             rpx.iterate(MOCK_CONFIG_FILE, v)
             with open(output_file) as f:
                 self.assertIn('3.1.0-m9', f.read())
         finally:
             os.remove(output_file)
-            os.environ.pop('VERSION')
+            os.environ.pop('REPEX_VAR_VERSION')
 
     def test_iterate_variables_not_dict(self):
         ex = self.assertRaises(

@@ -158,7 +158,7 @@ Some important facts about variables:
 - `type`, `path`, `base_directory`, `match`, `replace` and `with` can all receive variables.
 - For now, all attributes which are not strings cannot receive variables. This might change in future versions.
 - Variables with the same name sent via the API will override the hardcoded ones.
-- API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case (so the variable "version" can be overriden by an env var called "VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number. This of course means that you HAVE TO make sure you don't use variables with names of known env vars (e.g. PATH :))
+- API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case and prefixed with `REPEX_VAR_` (so the variable "version" can be overriden by an env var called "REPEX_VAR_VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number.
 
 
 #### Basic Functions

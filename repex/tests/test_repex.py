@@ -21,39 +21,35 @@ import testtools
 import os
 from testfixtures import LogCapture
 import logging
+# import tempfile
 
 
 TEST_RESOURCES_DIR = 'repex/tests/resources/'
 TEST_RESOURCES_DIR_PATTERN = 'repex/tests/resource.*'
-MOCK_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_files.yaml')
-MOCK_CONFIG_MULTIPLE_FILES = os.path.join(
+MOCK_SINGLE_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_single_file.yaml')
+MOCK_MULTIPLE_FILES = os.path.join(
     TEST_RESOURCES_DIR, 'mock_multiple_files.yaml')
-MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR = os.path.join(
-    TEST_RESOURCES_DIR, 'mock_files_with_failed_validator.yaml')
 TEST_FILE_NAME = 'mock_VERSION'
-MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, TEST_FILE_NAME)
-BAD_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml')
+MOCK_TEST_FILE = os.path.join(TEST_RESOURCES_DIR, 'single', TEST_FILE_NAME)
 EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
-
-MOCK_YAML_FILES = ['mock_yaml/mock_files.yaml',
-                   'mock_yaml/mock_multiple_files.yaml']
-
-EXCLUDE_FILE_REGEX = '.*VERSION.*'
-# list of files to include in replacement relative to TEST_RESOURCES_DIR
-FILES = [
-    'multiple/folders/mock_VERSION',
-    'multiple/mock_VERSION'
-]
-# list of files to exclude in replacement relative to TEST_RESOURCES_DIR
-EXCLUDED_FILES = [
-    'multiple/excluded/mock_VERSION'
-]
-EXCLUDED_DIRS = [
-    'multiple/excluded'
-]
+MULTIPLE_DIR = os.path.join(TEST_RESOURCES_DIR, 'multiple')
+SINGLE_DIR = os.path.join(TEST_RESOURCES_DIR, 'multiple')
+EXCLUDED_FILE = os.path.join(MULTIPLE_DIR, 'excluded', TEST_FILE_NAME)
 
 
 class TestBase(testtools.TestCase):
+
+    def setUp(self):
+        super(TestBase, self).setUp()
+        self.version_files = []
+        for root, _, files in os.walk(MULTIPLE_DIR):
+            for f in files:
+                if f == 'mock_VERSION':
+                    self.version_files.append(os.path.join(root, f))
+        self.version_files_without_excluded = \
+            [f for f in self.version_files if f != EXCLUDED_FILE]
+        self.excluded_files = [f for f in self.version_files if f not
+                               in self.version_files_without_excluded]
 
     def test_set_global_verbosity_level(self):
         lgr = logger.init(base_level=logging.INFO)
@@ -71,20 +67,6 @@ class TestBase(testtools.TestCase):
                 ('user', 'INFO', 'TEST_LOGGER_OUTPUT'),
                 ('user', 'DEBUG', 'TEST_LOGGER_OUTPUT'))
 
-    def test_import_config_file(self):
-        outcome = rpx.import_config(MOCK_CONFIG_FILE)
-        self.assertEquals(type(outcome), dict)
-        self.assertIn('paths', outcome.keys())
-
-    def test_fail_import_config_file(self):
-        ex = self.assertRaises(SystemExit, rpx.import_config, '')
-        self.assertEquals(
-            ex.message, codes.mapping['cannot_access_config_file'])
-
-    def test_import_bad_config_file_mapping(self):
-        ex = self.assertRaises(SystemExit, rpx.import_config, BAD_CONFIG_FILE)
-        self.assertEqual(codes.mapping['invalid_yaml_file'], ex.message)
-
     def test_iterate_no_config_supplied(self):
         ex = self.assertRaises(TypeError, rpx.iterate)
         self.assertIn('takes at least 1 argument', str(ex))
@@ -94,50 +76,9 @@ class TestBase(testtools.TestCase):
             SystemExit, rpx.iterate, EMPTY_CONFIG_FILE, {})
         self.assertEqual(codes.mapping['no_paths_configured'], ex.message)
 
-    def test_iterate(self):
-        output_file = MOCK_TEST_FILE + '.test'
-        v = {'version': '3.1.0-m3'}
-        try:
-            rpx.iterate(MOCK_CONFIG_FILE, v)
-            with open(output_file) as f:
-                self.assertIn('3.1.0-m3', f.read())
-        finally:
-            os.remove(output_file)
-
-    def test_iterate_with_vars(self):
-        output_file = MOCK_TEST_FILE + '.test'
-        v = {'version': '3.1.0-m3'}
-        try:
-            rpx.iterate(MOCK_CONFIG_FILE, v)
-            with open(output_file) as f:
-                self.assertIn('3.1.0-m3', f.read())
-        finally:
-            os.remove(output_file)
-
-    def test_iterate_with_vars_in_config(self):
-        output_file = MOCK_TEST_FILE + '.test'
-        try:
-            rpx.iterate(MOCK_CONFIG_FILE)
-            with open(output_file) as f:
-                self.assertIn('3.1.0-m4', f.read())
-        finally:
-            os.remove(output_file)
-
-    def test_env_var_based_replacement(self):
-        output_file = MOCK_TEST_FILE + '.test'
-        v = {'version': '3.1.0-m3'}
-        os.environ['REPEX_VAR_VERSION'] = '3.1.0-m9'
-        try:
-            rpx.iterate(MOCK_CONFIG_FILE, v)
-            with open(output_file) as f:
-                self.assertIn('3.1.0-m9', f.read())
-        finally:
-            os.remove(output_file)
-            os.environ.pop('REPEX_VAR_VERSION')
-
     def test_iterate_variables_not_dict(self):
         ex = self.assertRaises(
-            RuntimeError, rpx.iterate, MOCK_CONFIG_FILE, variables='x')
+            RuntimeError, rpx.iterate, MOCK_SINGLE_FILE, variables='x')
         self.assertEqual(str(ex), 'variables must be of type dict')
 
     def test_match_not_found_in_file_force_match_and_pattern(self):
@@ -178,7 +119,7 @@ class TestBase(testtools.TestCase):
             'match': 'MISSING_MATCH',
             'replace': 'MISSING_PATTERN',
             'with': '',
-            'to_file': MOCK_TEST_FILE + '.test',
+            'to_file': 'VERSION.test',
             'validate_before': True
         }
         try:
@@ -205,7 +146,7 @@ class TestBase(testtools.TestCase):
             'match': '3.1.0-m2',
             'replace': '3.1.0',
             'with': '',
-            'to_file': MOCK_TEST_FILE + '.test',
+            'to_file': 'VERSION.test',
             'validate_before': True,
             'must_include': [
                 'MISSING_INCLUSION'
@@ -218,7 +159,7 @@ class TestBase(testtools.TestCase):
 
     def test_path_with_and_without_base_directory(self):
         p = {
-            'path': TEST_FILE_NAME,
+            'path': os.path.join('single', TEST_FILE_NAME),
             'base_directory': TEST_RESOURCES_DIR,
             'match': '3.1.0-m2',
             'replace': '3.1.0-m2',
@@ -274,81 +215,26 @@ class TestBase(testtools.TestCase):
             'version': '3.1.0-m3'
         }
         # iterate once
-        rpx.iterate(MOCK_CONFIG_MULTIPLE_FILES, v, True)
+        rpx.iterate(MOCK_MULTIPLE_FILES, v, True)
         # verify that all files were modified
-        for fl in FILES:
-            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
+        for version_file in self.version_files_without_excluded:
+            with open(version_file) as f:
                 self.assertIn('3.1.0-m3', f.read())
-        # all other than the excluded ones
-        for fl in EXCLUDED_FILES:
-            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
+        # # all other than the excluded ones
+        for version_file in self.excluded_files:
+            with open(version_file) as f:
                 self.assertIn('3.1.0-m2', f.read())
         v['preversion'] = '3.1.0-m3'
         v['version'] = '3.1.0-m2'
-        rpx.iterate(MOCK_CONFIG_MULTIPLE_FILES, v)
-        for fl in FILES:
-            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
+        rpx.iterate(MOCK_MULTIPLE_FILES, v)
+        # verify that all files were modified
+        for version_file in self.version_files_without_excluded:
+            with open(version_file) as f:
                 self.assertIn('3.1.0-m2', f.read())
-        for fl in EXCLUDED_FILES:
-            with open(os.path.join(TEST_RESOURCES_DIR, fl)) as f:
+        # # all other than the excluded ones
+        for version_file in self.excluded_files:
+            with open(version_file) as f:
                 self.assertIn('3.1.0-m2', f.read())
-
-    def test_get_all_files_no_exclusion(self):
-        files = rpx.get_all_files(
-            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
-        for f in FILES + EXCLUDED_FILES:
-            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
-
-    def test_get_all_files_with_file_exclusion(self):
-        files = rpx.get_all_files(
-            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
-            EXCLUDED_FILES)
-        for f in EXCLUDED_FILES:
-            self.assertIn(
-                'repex/tests/resources/multiple/folders/mock_VERSION', files)
-            self.assertIn(
-                'repex/tests/resources/multiple/mock_VERSION', files)
-        for f in EXCLUDED_FILES:
-            self.assertNotIn(
-                'repex/tests/resources/multiple/excluded/mock_VERSION', files)
-
-    def test_get_all_files_with_dir_exclusion(self):
-        files = rpx.get_all_files(
-            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
-            EXCLUDED_DIRS)
-        for f in EXCLUDED_FILES:
-            self.assertIn(
-                'repex/tests/resources/multiple/folders/mock_VERSION', files)
-            self.assertIn(
-                'repex/tests/resources/multiple/mock_VERSION', files)
-        for f in EXCLUDED_FILES:
-            self.assertNotIn(
-                'repex/tests/resources/multiple/excluded/mock_VERSION', files)
-
-    def test_get_all_files_excluded_list_is_str(self):
-        ex = self.assertRaises(
-            SystemExit, rpx.get_all_files,
-            'mock_VERSION', TEST_RESOURCES_DIR_PATTERN,
-            TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
-        self.assertEqual(
-            codes.mapping['excluded_paths_must_be_a_list'], ex.message)
-
-    def test_get_all_mock_version_files(self):
-        files = rpx.get_all_files(
-            'mock.*\.yaml', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
-
-        self.assertEquals(len(MOCK_YAML_FILES), len(files))
-        for f in MOCK_YAML_FILES:
-            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
-
-    def test_get_all_mock_version_files_with_exclude(self):
-        files = rpx.get_all_files(
-            'mock.*', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
-            excluded_paths=['multiple'], exclude_file_name_regex='.*VERSION.*')
-
-        self.assertEquals(len(MOCK_YAML_FILES), len(files))
-        for f in MOCK_YAML_FILES:
-            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
 
     def test_type_with_path_config(self):
         p = {
@@ -378,15 +264,165 @@ class TestBase(testtools.TestCase):
             SystemExit, rpx.handle_path, p, verbose=True)
         self.assertEqual(codes.mapping['file_not_found'], ex.message)
 
+
+class TestConfig(testtools.TestCase):
+
+    def test_import_config_file(self):
+        outcome = rpx.import_config(MOCK_SINGLE_FILE)
+        self.assertEquals(type(outcome), dict)
+        self.assertIn('paths', outcome.keys())
+
+    def test_fail_import_config_file(self):
+        ex = self.assertRaises(SystemExit, rpx.import_config, '')
+        self.assertEquals(
+            ex.message, codes.mapping['cannot_access_config_file'])
+
+    def test_import_bad_config_file_mapping(self):
+        ex = self.assertRaises(
+            SystemExit, rpx.import_config,
+            os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml'))
+        self.assertEqual(codes.mapping['invalid_yaml_file'], ex.message)
+
+
+class TestValidator(testtools.TestCase):
+
+    def setUp(self):
+        super(TestValidator, self).setUp()
+        self.single_file_config = rpx.import_config(MOCK_SINGLE_FILE)
+        self.single_file_output_file = \
+            self.single_file_config['paths'][0]['to_file']
+
     def test_validator(self):
-        output_file = MOCK_TEST_FILE + '.test'
         v = {'version': '3.1.0-m3'}
         try:
             ex = self.assertRaises(
                 SystemExit, rpx.iterate,
-                MOCK_CONFIG_FILE_WITH_FAILED_VALIDATOR, v)
+                os.path.join(
+                    TEST_RESOURCES_DIR,
+                    'mock_files_with_failed_validator.yaml'), v)
             self.assertEqual(codes.mapping['validator_failed'], ex.message)
-            with open(output_file) as f:
+            with open(self.single_file_output_file) as f:
                 self.assertIn('3.1.0-m3', f.read())
         finally:
-            os.remove(output_file)
+            os.remove(self.single_file_output_file)
+
+
+class TestSingleFile(testtools.TestCase):
+
+    def setUp(self):
+        super(TestSingleFile, self).setUp()
+        self.single_file_config = rpx.import_config(MOCK_SINGLE_FILE)
+        self.single_file_output_file = \
+            self.single_file_config['paths'][0]['to_file']
+        self.multi_file_config = rpx.import_config(MOCK_MULTIPLE_FILES)
+        self.multi_file_excluded_dirs = \
+            self.multi_file_config['paths'][0]['excluded']
+
+    def test_iterate(self):
+        v = {'version': '3.1.0-m3'}
+        try:
+            rpx.iterate(MOCK_SINGLE_FILE, v)
+            with open(self.single_file_output_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        finally:
+            os.remove(self.single_file_output_file)
+
+    def test_iterate_with_vars(self):
+        v = {'version': '3.1.0-m3'}
+        try:
+            rpx.iterate(MOCK_SINGLE_FILE, v)
+            with open(self.single_file_output_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        finally:
+            os.remove(self.single_file_output_file)
+
+    def test_iterate_with_vars_in_config(self):
+        try:
+            rpx.iterate(MOCK_SINGLE_FILE)
+            with open(self.single_file_output_file) as f:
+                self.assertIn('3.1.0-m4', f.read())
+        finally:
+            os.remove(self.single_file_output_file)
+
+    def test_env_var_based_replacement(self):
+        v = {'version': '3.1.0-m3'}
+        os.environ['REPEX_VAR_VERSION'] = '3.1.0-m9'
+        try:
+            rpx.iterate(MOCK_SINGLE_FILE, v)
+            with open(self.single_file_output_file) as f:
+                self.assertIn('3.1.0-m9', f.read())
+        finally:
+            os.remove(self.single_file_output_file)
+            os.environ.pop('REPEX_VAR_VERSION')
+
+
+class TestGetAllFiles(testtools.TestCase):
+
+    def setUp(self):
+        super(TestGetAllFiles, self).setUp()
+        self.multi_file_config = rpx.import_config(MOCK_MULTIPLE_FILES)
+        self.multi_file_excluded_dirs = \
+            self.multi_file_config['paths'][0]['excluded']
+        self.excluded_files = [os.path.join(
+            self.multi_file_excluded_dirs[0], TEST_FILE_NAME)]
+        self.base_dir = self.multi_file_config['paths'][0]['base_directory']
+
+        self.version_files = []
+        for root, _, files in os.walk(MULTIPLE_DIR):
+            for f in files:
+                if f == 'mock_VERSION':
+                    self.version_files.append(os.path.join(root, f))
+        self.version_files_without_excluded = \
+            [f for f in self.version_files if f != EXCLUDED_FILE]
+        self.excluded_files = [f for f in self.version_files if f not
+                               in self.version_files_without_excluded]
+
+    def test_get_all_files_no_exclusion(self):
+        files = rpx.get_all_files(
+            TEST_FILE_NAME, TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
+        for version_file in self.version_files:
+            self.assertIn(version_file, files)
+
+    def test_get_all_files_with_file_exclusion(self):
+        files = rpx.get_all_files(
+            TEST_FILE_NAME, TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            self.multi_file_excluded_dirs, verbose=True)
+        for version_file in self.version_files_without_excluded:
+            self.assertIn(version_file, files)
+        for f in self.excluded_files:
+            self.assertNotIn(os.path.join(self.base_dir, f), files)
+
+    def test_get_all_files_with_dir_exclusion(self):
+        files = rpx.get_all_files(
+            TEST_FILE_NAME, TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            self.multi_file_excluded_dirs)
+        for version_file in self.version_files_without_excluded:
+            self.assertIn(version_file, files)
+        for f in self.excluded_files:
+            self.assertNotIn(os.path.join(self.base_dir, f), files)
+
+    def test_get_all_files_excluded_list_is_str(self):
+        ex = self.assertRaises(
+            SystemExit, rpx.get_all_files,
+            TEST_FILE_NAME, TEST_RESOURCES_DIR_PATTERN,
+            TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
+        self.assertEqual(
+            codes.mapping['excluded_paths_must_be_a_list'], ex.message)
+
+    def test_get_all_regex_files(self):
+        mock_yaml_files = [f for f in os.listdir(TEST_RESOURCES_DIR)
+                           if (f.startswith('mock') and f.endswith('yaml'))]
+        files = rpx.get_all_files(
+            'mock.*\.yaml', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR)
+        self.assertEquals(len(mock_yaml_files), len(files))
+        for f in mock_yaml_files:
+            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
+
+    def test_get_all_regex_files_with_exclusion(self):
+        mock_yaml_files = [os.path.join('single', 'mock_VERSION')]
+        files = rpx.get_all_files(
+            'mock.*', TEST_RESOURCES_DIR_PATTERN, TEST_RESOURCES_DIR,
+            ['multiple'], True, '.*yaml',)
+        self.assertEquals(len(mock_yaml_files), len(files))
+        for f in mock_yaml_files:
+            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)

@@ -1,6 +1,6 @@
 paths:
     -   type: mock_VERSION
-        path: repex/tests/resources/
+        path: multiple
         excluded:
             - multiple/excluded
         base_directory: repex/tests/resources/

@@ -3,11 +3,11 @@ variables:
     version: 3.1.0-m4
 
 paths:
-    -   path: repex/tests/resources/mock_VERSION
+    -   path: repex/tests/resources/single/mock_VERSION
         match: '"version": "3.1.0-m2"'
         replace: "{{ .replace }}"
         with: "{{ .version }}"
-        to_file: repex/tests/resources/mock_VERSION.test
+        to_file: repex/tests/resources/single/VERSION.test
         validate_before: true
         must_include:
             - date

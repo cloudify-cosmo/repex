@@ -1,8 +1,4 @@
 from setuptools import setup
-# from setuptools import find_packages
-from setuptools.command.test import test as testcommand
-import sys
-import re
 import os
 import codecs
 
@@ -14,31 +10,9 @@ def read(*parts):
     return codecs.open(os.path.join(here, *parts), 'r').read()
 
 
-def find_version(*file_paths):
-    version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
-    if version_match:
-        print('VERSION: ', version_match.group(1))
-        return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
-
-
-class Tox(testcommand):
-    def finalize_options(self):
-        testcommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        # import here, cause outside the eggs aren't loaded
-        import tox
-        errcode = tox.cmdline(self.test_args)
-        sys.exit(errcode)
-
 setup(
     name='repex',
-    version=find_version('repex', '__init__.py'),
+    version="0.3.0",
     url='https://github.com/cloudify-cosmo/repex',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',
@@ -49,14 +23,13 @@ setup(
     packages=['repex'],
     entry_points={
         'console_scripts': [
-            'repex = repex.cli:main',
+            'rpx = repex.repex:main',
         ]
     },
     install_requires=[
         "pyyaml==3.10",
+        "click==4.0",
     ],
-    tests_require=['nose', 'tox'],
-    cmdclass={'test': Tox},
     classifiers=[
         'Programming Language :: Python',
         'Natural Language :: English',

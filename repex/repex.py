@@ -1,4 +1,3 @@
-import logger
 import logging
 import os
 import re
@@ -7,7 +6,10 @@ import shutil
 import sys
 import imp
 
+import click
+import logger
 import codes
+
 
 DEFAULT_CONFIG_FILE = 'config.yml'
 DEFAULT_VALIDATE_BEFORE = True
@@ -71,43 +73,50 @@ def import_config(config_file):
 
 def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
                   verbose=False, exclude_file_name_regex=None):
+    """Get all files for processing.
+
+    This starts iterating from `base_dir` and checks for all files
+    that look like `file_name_regex` under `path` regex excluding
+    all paths under the `excluded_paths` list, whether they are files
+    or folders. `excluded_paths` are explicit paths, not regex.
+    `exclude_file_name_regex` are files to be excluded as well.
+    """
     _set_global_verbosity_level(verbose)
     excluded_paths = excluded_paths if excluded_paths else []
-    lgr.debug('excluded paths: {0}'.format(excluded_paths))
     if not isinstance(excluded_paths, list):
-        lgr.error('excluded_paths must be of type list (not {0})'.format(
+        lgr.error('Excluded_paths must be of type list (not {0})'.format(
             type(excluded_paths)))
         sys.exit(codes.mapping['excluded_paths_must_be_a_list'])
-    lgr.info('looking for {0}\'s under {1} in {2}'.format(
+    excluded_paths = [os.path.join(base_dir, x).rstrip('/')
+                      for x in excluded_paths]
+    lgr.debug('Excluded paths: {0}'.format(excluded_paths))
+    lgr.info('Looking for {0}\'s under {1} in {2}...'.format(
         file_name_regex, path, base_dir))
-    dirs = []
-    for obj in os.listdir(base_dir):
-        lookup_dir = os.path.join(base_dir, obj)
-        if os.path.isdir(lookup_dir) and re.search(
-                r'{0}'.format(path), lookup_dir):
-            if lookup_dir in excluded_paths:
-                lgr.info('path {0} is excluded, skipping.'.format(obj))
-            else:
-                dirs.append(obj)
+    if exclude_file_name_regex:
+        lgr.info('Excluding all files named: {0}'.format(
+            exclude_file_name_regex))
+    # get all paths other than the ones not matching the regex
     target_files = []
-    for directory in dirs:
-        for root, dirs, files in os.walk(os.path.join(base_dir, directory)):
-            # append base dir to excluded paths to receive the full path
-            # relative to the base_dir.
-            ex_paths = [os.path.join(base_dir, e) for e in excluded_paths]
-            if root in ex_paths:
-                lgr.info('path {0} is excluded, skipping.'.format(root))
-                continue
-            for f in files:
-                if re.match(
-                        r'{0}'.format(file_name_regex), f)\
-                        and not re.match(
-                            r'{0}'.format(exclude_file_name_regex), f)\
-                        and not os.path.join(root, f) in ex_paths:
-                    target_files.append(os.path.join(root, f))
-                elif os.path.join(root, f) in ex_paths:
-                    lgr.debug('path {0} is excluded, skipping.'.format(
-                        os.path.join(root, f)))
+    for root, _, files in os.walk(base_dir):
+        # for each folder in root, check if it begins with one of excluded_path
+        if not root.startswith(tuple(excluded_paths)):
+            if re.search(r'{0}'.format(path), root):
+                for f in files:
+                    file_path = os.path.join(root, f)
+                    if os.path.isfile(file_path) \
+                            and re.match(r'{0}'.format(file_name_regex), f) \
+                            and not re.match(r'{0}'.format(
+                                exclude_file_name_regex), f):
+                        if file_path not in excluded_paths:
+                            lgr.debug('{0} is a match. Appending to '
+                                      'list...'.format(file_path))
+                            target_files.append(file_path)
+                        else:
+                            lgr.debug('{0} is excluded, Skipping...'.format(
+                                file_path))
+        else:
+            lgr.debug('{0} is excluded. Skipping...'.format(root))
+    lgr.info('Files to handle: {0}'.format(target_files))
     return target_files
 
 
@@ -117,7 +126,7 @@ class VarHandler():
     def __init__(self, verbose=False):
         _set_global_verbosity_level(verbose)
 
-    def expand(self, vars, attributes):
+    def expand(self, repex_vars, attributes):
         """receives a list of variables and a dict of attributes
         and iterates through them to expand a variable in an attribute
 
@@ -154,13 +163,13 @@ class VarHandler():
 
         # iterate over all variables
         lgr.info('expanding variables...')
-        for var, value in vars.items():
+        for var, value in repex_vars.items():
             for attribute in attributes.keys():
                 if isinstance(attributes[attribute], str):
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined
                     attributes[attribute] = self.expand_var(
-                        var, vars[var], attributes[attribute])
+                        var, repex_vars[var], attributes[attribute])
         return attributes
 
     def expand_var(self, variable, value, in_string):
@@ -205,15 +214,15 @@ def iterate(configfile, variables=None, verbose=False):
     except TypeError:
         lgr.error('No paths configured in yaml.')
         sys.exit(codes.mapping['no_paths_configured'])
-    vars = config.get('variables', {})
-    vars.update(variables)
+    repex_vars = config.get('variables', {})
+    repex_vars.update(variables)
     for var, value in os.environ.items():
         if var.startswith(REPEX_VAR_PREFIX):
-            vars[var.replace(REPEX_VAR_PREFIX, '').lower()] = value
-    lgr.debug('Variables: {0}'.format(vars))
+            repex_vars[var.replace(REPEX_VAR_PREFIX, '').lower()] = value
+    lgr.debug('Variables: {0}'.format(repex_vars))
 
     for path in paths:
-        handle_path(path, vars, verbose)
+        handle_path(path, repex_vars, verbose)
 
 
 def handle_path(p, variables=None, verbose=False):
@@ -416,3 +425,28 @@ class Repex():
 
 class RepexError(Exception):
     pass
+
+
+@click.group()
+def main():
+    pass
+
+
+@click.command()
+@click.option('-c', '--config', required=True,
+              help='Path to Repex config file.')
+@click.option('--vars-file', required=False,
+              help='Path to YAML base vars file.')
+@click.option('-v', '--verbose', default=False, is_flag=True)
+def execute(config, vars_file, verbose):
+    """Runs Repex
+    """
+    if vars_file:
+        with open(vars_file, 'r') as c:
+            repex_vars = yaml.safe_load(c.read())
+    else:
+        repex_vars = {}
+    iterate(config, repex_vars, verbose)
+
+
+main.add_command(execute)

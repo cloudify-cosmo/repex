@@ -240,10 +240,12 @@ def iterate(config, variables=None, verbose=False, tags=None):
             handle_path(path, repex_vars, verbose)
         else:
             if set(user_selected_tags) & set(path_tags):
-                lgr.debug('Matching tag(s) found...')
+                lgr.debug('Matching tag(s) found for path: '
+                          '{0}...'.format(path))
                 handle_path(path, repex_vars, verbose)
             else:
-                lgr.debug('No matching tags found, skipping...')
+                lgr.debug('No matching tags found for path: '
+                          '{0}, skipping...'.format(path))
 
 
 def handle_path(p, variables=None, verbose=False):

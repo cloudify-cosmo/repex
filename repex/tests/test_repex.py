@@ -79,7 +79,7 @@ class TestBase(testtools.TestCase):
     def test_iterate_variables_not_dict(self):
         ex = self.assertRaises(
             RuntimeError, rpx.iterate, MOCK_SINGLE_FILE, variables='x')
-        self.assertEqual(str(ex), 'variables must be of type dict')
+        self.assertEqual(str(ex), 'variables must be of type dict.')
 
     def test_match_not_found_in_file_force_match_and_pattern(self):
         p = rpx.Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
@@ -318,31 +318,61 @@ class TestSingleFile(testtools.TestCase):
         self.multi_file_excluded_dirs = \
             self.multi_file_config['paths'][0]['excluded']
 
+    def tearDown(self):
+        super(TestSingleFile, self).tearDown()
+        if os.path.isfile(self.single_file_output_file):
+            os.remove(self.single_file_output_file)
+
     def test_iterate(self):
         v = {'version': '3.1.0-m3'}
-        try:
-            rpx.iterate(MOCK_SINGLE_FILE, v)
-            with open(self.single_file_output_file) as f:
-                self.assertIn('3.1.0-m3', f.read())
-        finally:
-            os.remove(self.single_file_output_file)
+        rpx.iterate(MOCK_SINGLE_FILE, v)
+        with open(self.single_file_output_file) as f:
+            self.assertIn('3.1.0-m3', f.read())
+
+    def test_iterate_user_tags_no_path_tags(self):
+        tags = ['test_tag']
+        v = {'version': '3.1.0-m3'}
+        rpx.iterate(MOCK_SINGLE_FILE, v, verbose=True, tags=tags)
+        self.assertFalse(os.path.isfile(self.single_file_output_file))
+
+    def test_iterate_path_tags_no_user_tags(self):
+        tags = ['test_tag']
+        self.single_file_config['paths'][0]['tags'] = tags
+        v = {'version': '3.1.0-m3'}
+        rpx.iterate(self.single_file_config, v, verbose=True)
+        self.assertFalse(os.path.isfile(self.single_file_output_file))
+
+    def test_iterate_path_tags_user_tags(self):
+        tags = ['test_tag']
+        self.single_file_config['paths'][0]['tags'] = tags
+        v = {'version': '3.1.0-m3'}
+        rpx.iterate(
+            self.single_file_config,
+            v, verbose=True, tags=tags)
+        with open(self.single_file_output_file) as f:
+            self.assertIn('3.1.0-m3', f.read())
+
+    def test_iterate_any_tag(self):
+        tags = ['test_tag']
+        any_tag = ['any']
+        self.single_file_config['paths'][0]['tags'] = tags
+        v = {'version': '3.1.0-m3'}
+        rpx.iterate(
+            self.single_file_config,
+            v, verbose=True, tags=any_tag)
+        with open(self.single_file_output_file) as f:
+            self.assertIn('3.1.0-m3', f.read())
 
     def test_iterate_with_vars(self):
         v = {'version': '3.1.0-m3'}
-        try:
-            rpx.iterate(MOCK_SINGLE_FILE, v)
-            with open(self.single_file_output_file) as f:
-                self.assertIn('3.1.0-m3', f.read())
-        finally:
-            os.remove(self.single_file_output_file)
+        rpx.iterate(MOCK_SINGLE_FILE, v)
+        with open(self.single_file_output_file) as f:
+            self.assertIn('3.1.0-m3', f.read())
 
     def test_iterate_with_vars_in_config(self):
-        try:
-            rpx.iterate(MOCK_SINGLE_FILE)
-            with open(self.single_file_output_file) as f:
-                self.assertIn('3.1.0-m4', f.read())
-        finally:
-            os.remove(self.single_file_output_file)
+        rpx.iterate(MOCK_SINGLE_FILE)
+        with open(self.single_file_output_file) as f:
+            self.assertIn('3.1.0-m4', f.read())
 
     def test_env_var_based_replacement(self):
         v = {'version': '3.1.0-m3'}
@@ -352,7 +382,6 @@ class TestSingleFile(testtools.TestCase):
             with open(self.single_file_output_file) as f:
                 self.assertIn('3.1.0-m9', f.read())
         finally:
-            os.remove(self.single_file_output_file)
             os.environ.pop('REPEX_VAR_VERSION')
 
 

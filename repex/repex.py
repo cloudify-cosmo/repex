@@ -1,14 +1,14 @@
 import logging
 import os
 import re
-import yaml
 import shutil
 import sys
 import imp
 
+import yaml
 import click
-import logger
-import codes
+
+from . import logger, codes
 
 
 DEFAULT_CONFIG_FILE = 'config.yml'
@@ -18,7 +18,6 @@ DEFAULT_MUST_INCLUDE = []
 REPEX_VAR_PREFIX = 'REPEX_VAR_'
 
 lgr = logger.init()
-verbose_output = False
 
 
 def _set_global_verbosity_level(is_verbose_output=False):
@@ -26,9 +25,7 @@ def _set_global_verbosity_level(is_verbose_output=False):
 
     :param bool is_verbose_output: should be output be verbose
     """
-    global verbose_output
-    verbose_output = is_verbose_output
-    if verbose_output:
+    if is_verbose_output:
         lgr.setLevel(logging.DEBUG)
     else:
         lgr.setLevel(logging.INFO)
@@ -58,7 +55,7 @@ def import_config(config_file):
     lgr.debug('config file is: {0}'.format(config_file))
     # append to path for importing
     try:
-        lgr.info('importing config...')
+        lgr.info('Importing config...')
         with open(config_file, 'r') as c:
             return yaml.safe_load(c.read())
     except IOError as ex:
@@ -197,18 +194,27 @@ class VarHandler():
         return in_string
 
 
-def iterate(configfile, variables=None, verbose=False):
-    """iterates over all paths in `configfile`
+def iterate(config, variables=None, verbose=False, tags=None):
+    """Iterates over all paths in `configfile`
+
+    If user chose tags and path has tags run only if matching tags found
+    If user chose tags and path does not have tags do not run on path
+    If user did not choose tags and path has tags do not run on path
+    If user did not choose tags and path does not have tags run on path
+    If user chose 'any' tags run on path
 
     :param string configfile: yaml path with files to iterate over
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
     _set_global_verbosity_level(verbose)
-    config = import_config(configfile)
-    variables = variables if variables else {}
+    if os.path.isfile(str(config)):
+        config = import_config(config)
+    elif not isinstance(config, dict):
+        raise RuntimeError('config must be of type dict.')
+    variables = variables or {}
     if not isinstance(variables, dict):
-        raise RuntimeError('variables must be of type dict')
+        raise RuntimeError('variables must be of type dict.')
     try:
         paths = config['paths']
     except TypeError:
@@ -221,8 +227,23 @@ def iterate(configfile, variables=None, verbose=False):
             repex_vars[var.replace(REPEX_VAR_PREFIX, '').lower()] = value
     lgr.debug('Variables: {0}'.format(repex_vars))
 
+    user_selected_tags = tags or []
+    if not isinstance(user_selected_tags, list):
+        raise RuntimeError('tags must be of type list.')
+    lgr.debug('User tags: {0}'.format(user_selected_tags))
     for path in paths:
-        handle_path(path, repex_vars, verbose)
+        path_tags = path.get('tags', [])
+        lgr.debug('Checking user tags against path tags: {0}'.format(
+            path_tags))
+        if 'any' in user_selected_tags or \
+                (not user_selected_tags and not path_tags):
+            handle_path(path, repex_vars, verbose)
+        else:
+            if set(user_selected_tags) & set(path_tags):
+                lgr.debug('Matching tag(s) found...')
+                handle_path(path, repex_vars, verbose)
+            else:
+                lgr.debug('No matching tags found, skipping...')
 
 
 def handle_path(p, variables=None, verbose=False):
@@ -437,8 +458,10 @@ def main():
               help='Path to Repex config file.')
 @click.option('--vars-file', required=False,
               help='Path to YAML base vars file.')
+@click.option('-t', '--tag', required=False, multiple=True,
+              help='A list of tags to match with path tags.')
 @click.option('-v', '--verbose', default=False, is_flag=True)
-def execute(config, vars_file, verbose):
+def execute(config, vars_file, tag, verbose):
     """Runs Repex
     """
     if vars_file:
@@ -446,7 +469,7 @@ def execute(config, vars_file, verbose):
             repex_vars = yaml.safe_load(c.read())
     else:
         repex_vars = {}
-    iterate(config, repex_vars, verbose)
+    iterate(config, repex_vars, verbose, list(tag))
 
 
 main.add_command(execute)

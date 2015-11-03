@@ -55,6 +55,9 @@ variables:
 paths:
     -   type: VERSION
         path: resources
+        tags:
+            - my_tag
+            - my_other_tag
         excluded:
             - excluded_file.file
         base_directory: "{{ .base_dir }}"
@@ -111,6 +114,7 @@ Don't forget the spaces!
 - `variables` is a dict of variables you can use throughout the config. See below for more info.
 - `type` is a regex string representing the file name you're looking for.
 - `path` is a regex string representing the path in which you'd like to search for files (so, for instance, if you only want to replace files in directory names starting with "my-", you would write "my-.*"). If `path` is a path to a single file, the `type` attribute must not be configured.
+- `tags` is a list of tags to apply to the path. Tags are used for Repex's triggering mechanism to allow you to choose which paths you want to address in every single execution. More on that below.
 - `excluded` is a list of excluded paths. The paths must be relative to the working directory, NOT to the `path` variable.
 - `base_directory` is the directory from which you'd like to start the recursive search for files. If `path` is a path to a file, this property can be omitted. Alternatively, you can set the `base_directory` and a `path` relative to it.
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way to replace strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.
@@ -125,6 +129,16 @@ In case you're providing a path to a file rather than a directory:
 - `type` and `base_directory` are depracated
 - you can provide a `to_file` key with the path to the file you'd like to create after replacing.
 
+#### Tags
+
+Tags allow a user to choose a set of paths on each execution.
+A user could apply a list of tags to a path and then, executing repex will address these paths according to the following logic:
+
+* If a user supplied a list of tags and the path was applied a list of tags, the path will be addressed only if matching tags were found.
+* If a user supplied a list of tags and the path contains no tags, the path will be ignored.
+* If a user did not supply tags and the path contains tags, the path will be ignored.
+* If a user did not supply tags and the path does not contain tags, the path will be addressed.
+* If a user proivded `any` as a tag, all paths, regardless of whether they have or haven't tags will be addressed.
 
 #### Variables
 

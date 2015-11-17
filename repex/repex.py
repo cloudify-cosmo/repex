@@ -31,31 +31,13 @@ def _set_global_verbosity_level(is_verbose_output=False):
         lgr.setLevel(logging.INFO)
 
 
-def _import_validator(validator_path):
-    lgr.debug('Importing validator: {0}'.format(validator_path))
-    return imp.load_source(os.path.basename(validator_path), validator_path)
-
-
-def _validate(validator, validating_function, file_path):
-    """Validates a file.
-    This will receive the `file_path` to validate and pass it
-    to the `validating_function` for execution.
-    """
-    lgr.info('Validating {0} using {1}...'.format(
-        file_path, validating_function))
-    getattr(validator, validating_function)(file_path)
-
-
 def import_config(config_file):
     """returns a configuration object
 
     :param string config_file: path to config file
     """
-    # get config file path
-    lgr.debug('config file is: {0}'.format(config_file))
-    # append to path for importing
     try:
-        lgr.info('Importing config...')
+        lgr.info('Importing config {0}...'.format(config_file))
         with open(config_file, 'r') as c:
             return yaml.safe_load(c.read())
     except IOError as ex:
@@ -92,7 +74,6 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     if exclude_file_name_regex:
         lgr.info('Excluding all files named: {0}'.format(
             exclude_file_name_regex))
-    # get all paths other than the ones not matching the regex
     target_files = []
     for root, _, files in os.walk(base_dir):
         # for each folder in root, check if it begins with one of excluded_path
@@ -115,6 +96,49 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
             lgr.debug('{0} is excluded. Skipping...'.format(root))
     lgr.info('Files to handle: {0}'.format(target_files))
     return target_files
+
+
+class Validator():
+    def __init__(self, validator_config):
+        self.config = validator_config
+        self._validate_config()
+
+    def validate(self, path_to_validate):
+        validator = self._import_validator(self.config['path'])
+        lgr.info('Validating {0} using {1}...'.format(
+            path_to_validate, self.config['function']))
+        validated = getattr(
+            validator, self.config['function'])(path_to_validate, lgr)
+        if validated is not True:
+            lgr.error('Failed to validate: {0}'.format(path_to_validate))
+            sys.exit(codes.mapping['validator_failed'])
+        lgr.info('Validation Succeeded for: {0}...'.format(path_to_validate))
+
+    def _validate_config(self):
+        validator_type = self.config.get('type') or 'per_type'
+        validator_types = ('per_file', 'per_type')
+        if validator_type not in validator_types:
+            lgr.error('Invalid validator type. Can be one of {0}.'.format(
+                validator_types))
+            sys.exit(codes.mapping['invalid_validator_type'])
+        if not self.config.get('path'):
+            lgr.error('`path` to validator script must be supplied in '
+                      'validator config.')
+            sys.exit(codes.mapping['validator_path_missing'])
+        if not self.config.get('function'):
+            lgr.error('Validation `function` to use must be supplied in '
+                      'validator config.')
+            sys.exit(codes.mapping['validator_path_missing'])
+
+    @staticmethod
+    def _import_validator(validator_path):
+        lgr.debug('Importing validator: {0}'.format(validator_path))
+        if not os.path.isfile(validator_path):
+            lgr.error('Validator script: {0} does not exist.'.format(
+                validator_path))
+            sys.exit(codes.mapping['validator_script_missing'])
+        return imp.load_source(
+            os.path.basename(validator_path), validator_path)
 
 
 class VarHandler():
@@ -162,11 +186,21 @@ class VarHandler():
         lgr.info('expanding variables...')
         for var, value in repex_vars.items():
             for attribute in attributes.keys():
-                if isinstance(attributes[attribute], str):
+                obj = attributes[attribute]
+                if isinstance(obj, str):
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined
                     attributes[attribute] = self.expand_var(
-                        var, repex_vars[var], attributes[attribute])
+                        var, value, obj)
+                elif isinstance(obj, dict):
+                    for k, v in obj.items():
+                        attributes[attribute][k] = self.expand_var(
+                            var, value, v)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        i = obj.index(item)
+                        attributes[attribute][i] = self.expand_var(
+                            var, value, item)
         return attributes
 
     def expand_var(self, variable, value, in_string):
@@ -211,10 +245,11 @@ def iterate(config, variables=None, verbose=False, tags=None):
     if os.path.isfile(str(config)):
         config = import_config(config)
     elif not isinstance(config, dict):
-        raise RuntimeError('config must be of type dict.')
+        raise RuntimeError('`config` must either be a valid repex config '
+                           'dict or a path to a file.')
     variables = variables or {}
     if not isinstance(variables, dict):
-        raise RuntimeError('variables must be of type dict.')
+        raise RuntimeError('`variables` must be of type dict.')
     try:
         paths = config['paths']
     except TypeError:
@@ -249,7 +284,7 @@ def iterate(config, variables=None, verbose=False, tags=None):
 
 
 def handle_path(p, variables=None, verbose=False):
-    """iterates over all files in p['path']
+    """Iterates over all files in p['path']
 
     :param dict p: a dict of a specific path in the config
     :param dict variables: a dict of variables (can be None)
@@ -263,19 +298,19 @@ def handle_path(p, variables=None, verbose=False):
     lgr.debug('path to process: {0}'.format(
         os.path.join(p['base_directory'], p['path'])))
     path_to_handle = os.path.join(p['base_directory'], p['path'])
-    if 'validator' in p:
-        validator = _import_validator(p['validator']['path'])
+
+    validator = 'validator' in p
+    if validator:
+        validator_config = p['validator']
+        v = Validator(validator_config)
+        validator_type = validator_config.get('type') or 'per_type'
+
     if not p.get('type'):
         if os.path.isfile(path_to_handle):
             p['path'] = path_to_handle
             handle_file(p, variables, verbose)
-            if 'validator' in p and (p['validator']['type'] == 'per_file' or
-                                     p['validator']['type'] == 'per_type'):
-                validated = _validate(
-                    validator, p['validator']['function'], p['path'])
-                if not validated:
-                    lgr.error('Failed to validate: {0}'.format(p['path']))
-                    sys.exit(codes.mapping['validator_failed'])
+            if validator:
+                v.validate(p['path'])
         else:
             lgr.error('file not found: {0}'.format(path_to_handle))
             sys.exit(codes.mapping['file_not_found'])
@@ -294,18 +329,10 @@ def handle_path(p, variables=None, verbose=False):
         for f in files:
             p['path'] = f
             handle_file(p, variables, verbose)
-            if 'validator' in p and p['validator']['type'] == 'per_file':
-                validated = _validate(
-                    validator, p['validator']['function'], p['path'])
-                if not validated:
-                    lgr.error('Failed to validate: {0}'.format(p['path']))
-                    sys.exit(codes.mapping['validator_failed'])
-        if 'validator' in p and p['validator']['type'] == 'per_type':
-            validated = _validate(
-                validator, p['validator']['function'], p['path'])
-            if not validated:
-                lgr.error('Failed to validate: {0}'.format(p['path']))
-                sys.exit(codes.mapping['validator_failed'])
+            if validator and validator_type == 'per_file':
+                v.validate(p['path'])
+        if validator and validator_type == 'per_type':
+            v.validate(p['path'])
 
 
 def handle_file(f, variables=None, verbose=False):
@@ -460,17 +487,27 @@ def main():
               help='Path to Repex config file.')
 @click.option('--vars-file', required=False,
               help='Path to YAML base vars file.')
+@click.option('--var', required=False, multiple=True,
+              help='A variable to pass to repex. Can be used multiple times. '
+              'Format should be `\'key\'=\'value\'`.')
 @click.option('-t', '--tag', required=False, multiple=True,
-              help='A list of tags to match with path tags.')
+              help='A tag to match with a path tags. '
+              'Can be used multiple times.')
 @click.option('-v', '--verbose', default=False, is_flag=True)
-def execute(config, vars_file, tag, verbose):
+def execute(config, vars_file, var, tag, verbose):
     """Runs Repex
     """
+    _set_global_verbosity_level(verbose)
+    logger.configure()
+
+    repex_vars = {}
     if vars_file:
         with open(vars_file, 'r') as c:
             repex_vars = yaml.safe_load(c.read())
-    else:
-        repex_vars = {}
+    if var:
+        for v in var:
+            key, value = v.split('=')
+            repex_vars.update({str(key): str(value)})
     iterate(config, repex_vars, verbose, list(tag))
 
 

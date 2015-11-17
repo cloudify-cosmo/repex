@@ -1,3 +1,3 @@
-def validate(file_path):
-    return True
-    # raise RuntimeError('Validation Successful!')
+def validate(file_path, logger):
+    logger.info('Validating something very specific...')
+    raise RuntimeError('Validation Successful!')

@@ -1,3 +1,7 @@
+variables:
+    valstr: 'date'
+    regex: '\d+(\.\d+){1,2}(-(m|rc)(\d+)?)?'
+
 paths:
     -   path: resources/VERSION
         excluded:
@@ -5,15 +9,15 @@ paths:
         tags:
             - mytag
         base_directory: '{{ .base_dir }}'
-        match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
-        replace: \d+\.\d+(\.\d+)?(-\w\d+)?
+        match: '"version": "{{ .regex }}"'
+        replace: "{{ .regex }}"
         with: "{{ .version }}"
         validate_before: true
         must_include:
-            - date
+            - "{{ .valstr }}"
             - commit
             - version
         validator:
             type: per_file
-            path: resources/validator.py
+            path: '{{ .base_dir }}/resources/validator.py'
             function: validate

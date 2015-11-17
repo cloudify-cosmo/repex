@@ -2,6 +2,8 @@ paths:
     -   path: resources/VERSION
         excluded:
             - excluded_file.file
+        tags:
+            - mytag
         base_directory: '{{ .base_dir }}'
         match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?

@@ -13,19 +13,21 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import os
+import logging
+import tempfile
+
+import testtools
+from testfixtures import LogCapture
+import click.testing as clicktest
+
 import repex.repex as rpx
 import repex.logger as logger
 import repex.codes as codes
 
-import testtools
-import os
-from testfixtures import LogCapture
-import logging
-# import tempfile
 
-
-TEST_RESOURCES_DIR = 'repex/tests/resources/'
-TEST_RESOURCES_DIR_PATTERN = 'repex/tests/resource.*'
+TEST_RESOURCES_DIR = os.path.join('repex', 'tests', 'resources')
+TEST_RESOURCES_DIR_PATTERN = os.path.join('repex', 'tests', 'resource.*')
 MOCK_SINGLE_FILE = os.path.join(TEST_RESOURCES_DIR, 'mock_single_file.yaml')
 MOCK_MULTIPLE_FILES = os.path.join(
     TEST_RESOURCES_DIR, 'mock_multiple_files.yaml')
@@ -35,6 +37,19 @@ EMPTY_CONFIG_FILE = os.path.join(TEST_RESOURCES_DIR, 'empty_mock_files.yaml')
 MULTIPLE_DIR = os.path.join(TEST_RESOURCES_DIR, 'multiple')
 SINGLE_DIR = os.path.join(TEST_RESOURCES_DIR, 'multiple')
 EXCLUDED_FILE = os.path.join(MULTIPLE_DIR, 'excluded', TEST_FILE_NAME)
+
+
+def _invoke_click(func, args_dict):
+
+    args_dict = args_dict or {}
+    args_list = []
+    for arg, value in args_dict.items():
+        if value:
+            args_list.append(arg + value)
+        else:
+            args_list.append(arg)
+
+    return clicktest.CliRunner().invoke(getattr(rpx, func), args_list)
 
 
 class TestBase(testtools.TestCase):
@@ -74,12 +89,12 @@ class TestBase(testtools.TestCase):
     def test_iterate_no_files(self):
         ex = self.assertRaises(
             SystemExit, rpx.iterate, EMPTY_CONFIG_FILE, {})
-        self.assertEqual(codes.mapping['no_paths_configured'], ex.message)
+        self.assertEqual(str(codes.mapping['no_paths_configured']), str(ex))
 
     def test_iterate_variables_not_dict(self):
         ex = self.assertRaises(
             RuntimeError, rpx.iterate, MOCK_SINGLE_FILE, variables='x')
-        self.assertEqual(str(ex), 'variables must be of type dict.')
+        self.assertEqual('`variables` must be of type dict.', str(ex))
 
     def test_match_not_found_in_file_force_match_and_pattern(self):
         p = rpx.Repex(MOCK_TEST_FILE, 'NONEXISTING STRING', 'X', '')
@@ -125,7 +140,8 @@ class TestBase(testtools.TestCase):
         try:
             rpx.handle_file(file, verbose=True)
         except SystemExit as ex:
-            self.assertEqual(codes.mapping['prevalidation_failed'], ex.message)
+            self.assertEqual(
+                str(codes.mapping['prevalidation_failed']), str(ex))
 
     def test_file_no_permissions_to_write_to_file(self):
         file = {
@@ -155,7 +171,8 @@ class TestBase(testtools.TestCase):
         try:
             rpx.handle_file(file, verbose=True)
         except SystemExit as ex:
-            self.assertEqual(ex.message, codes.mapping['prevalidation_failed'])
+            self.assertEqual(
+                str(codes.mapping['prevalidation_failed']), str(ex))
 
     def test_path_with_and_without_base_directory(self):
         p = {
@@ -196,7 +213,7 @@ class TestBase(testtools.TestCase):
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
         self.assertEquals(
-            codes.mapping['to_file_requires_explicit_path'], ex.message)
+            str(codes.mapping['to_file_requires_explicit_path']), str(ex))
 
     def test_file_does_not_exist(self):
         file = {
@@ -210,12 +227,20 @@ class TestBase(testtools.TestCase):
         self.assertFalse(result)
 
     def test_iterate_multiple_files(self):
-        v = {
-            'preversion': '3.1.0-m2',
-            'version': '3.1.0-m3'
-        }
+        fd, tmp = tempfile.mkstemp()
+        os.close(fd)
+        with open(tmp, 'w') as f:
+            f.write('version: \'3.1.0-m3\'')
         # iterate once
-        rpx.iterate(MOCK_MULTIPLE_FILES, v, True)
+        params = {
+            '-c': MOCK_MULTIPLE_FILES,
+            '--vars-file=': tmp,
+            '--var=': '\'preversion\'=\'3.1.0-m2\'',
+        }
+        try:
+            _invoke_click('execute', params)
+        finally:
+            os.remove(tmp)
         # verify that all files were modified
         for version_file in self.version_files_without_excluded:
             with open(version_file) as f:
@@ -224,8 +249,10 @@ class TestBase(testtools.TestCase):
         for version_file in self.excluded_files:
             with open(version_file) as f:
                 self.assertIn('3.1.0-m2', f.read())
-        v['preversion'] = '3.1.0-m3'
-        v['version'] = '3.1.0-m2'
+        v = {
+            'preversion': '3.1.0-m3',
+            'version': '3.1.0-m2'
+        }
         rpx.iterate(MOCK_MULTIPLE_FILES, v)
         # verify that all files were modified
         for version_file in self.version_files_without_excluded:
@@ -249,7 +276,7 @@ class TestBase(testtools.TestCase):
         }
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
-        self.assertEqual(codes.mapping['type_path_collision'], ex.message)
+        self.assertEqual(str(codes.mapping['type_path_collision']), str(ex))
 
     def test_single_file_not_found(self):
         p = {
@@ -262,7 +289,7 @@ class TestBase(testtools.TestCase):
         }
         ex = self.assertRaises(
             SystemExit, rpx.handle_path, p, verbose=True)
-        self.assertEqual(codes.mapping['file_not_found'], ex.message)
+        self.assertEqual(str(codes.mapping['file_not_found']), str(ex))
 
 
 class TestConfig(testtools.TestCase):
@@ -275,13 +302,13 @@ class TestConfig(testtools.TestCase):
     def test_fail_import_config_file(self):
         ex = self.assertRaises(SystemExit, rpx.import_config, '')
         self.assertEquals(
-            ex.message, codes.mapping['cannot_access_config_file'])
+            str(codes.mapping['cannot_access_config_file']), str(ex))
 
     def test_import_bad_config_file_mapping(self):
         ex = self.assertRaises(
             SystemExit, rpx.import_config,
             os.path.join(TEST_RESOURCES_DIR, 'bad_mock_files.yaml'))
-        self.assertEqual(codes.mapping['invalid_yaml_file'], ex.message)
+        self.assertEqual(str(codes.mapping['invalid_yaml_file']), str(ex))
 
 
 class TestValidator(testtools.TestCase):
@@ -300,7 +327,7 @@ class TestValidator(testtools.TestCase):
                 os.path.join(
                     TEST_RESOURCES_DIR,
                     'mock_files_with_failed_validator.yaml'), v)
-            self.assertEqual(codes.mapping['validator_failed'], ex.message)
+            self.assertEqual(str(codes.mapping['validator_failed']), str(ex))
             with open(self.single_file_output_file) as f:
                 self.assertIn('3.1.0-m3', f.read())
         finally:
@@ -436,7 +463,7 @@ class TestGetAllFiles(testtools.TestCase):
             TEST_FILE_NAME, TEST_RESOURCES_DIR_PATTERN,
             TEST_RESOURCES_DIR, 'INVALID_EXCLUDED_LIST')
         self.assertEqual(
-            codes.mapping['excluded_paths_must_be_a_list'], ex.message)
+            str(codes.mapping['excluded_paths_must_be_a_list']), str(ex))
 
     def test_get_all_regex_files(self):
         mock_yaml_files = [f for f in os.listdir(TEST_RESOURCES_DIR)

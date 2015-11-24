@@ -19,7 +19,7 @@ The layers are:
 AND, you can use variables (sorta jinja2 style). How cool is that? See reference config below.
 
 
-### Installation
+## Installation
 
 ```shell
 pip install repex
@@ -31,7 +31,7 @@ For dev:
 pip install https://github.com/cloudify-cosmo/repex/archive/master.tar.gz
 ```
 
-### Usage
+## Usage
 
 Let's say you have files named "VERSION" in different directories which look like this:
 
@@ -108,7 +108,7 @@ def my_validation_function(version_file_path, logger):
 
 ```
 
-### CLI
+## CLI
 
 Repex exposes a CLI which can be used to basically do anything you need.
 
@@ -116,14 +116,14 @@ Repex exposes a CLI which can be used to basically do anything you need.
 rpx execute -c config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
 ```
 
-#### Notes
+### Notes
 
 * While the CLI can execute repex, it will be more likely that you would use the Python API to execute the `iterate` function as you will most probably want to dynamically pass variables according to certain logic provided by your system.
 * Variables provided via the `--var` flag will override variables provided within the `--vars-file`.
 * Currently, you can't pass variables which contain a `=` within them.
 
 
-#### Config yaml Explained
+## Config YAML Explained
 
 IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or they will not expand! Might fix that in future versions...
 
@@ -148,7 +148,7 @@ In case you're providing a path to a file rather than a directory:
 - `type` and `base_directory` are depracated
 - you can provide a `to_file` key with the path to the file you'd like to create after replacing.
 
-#### Tags
+## Tags
 
 Tags allow a user to choose a set of paths on each execution.
 A user could apply a list of tags to a path and then, executing repex will address these paths according to the following logic:
@@ -161,7 +161,7 @@ A user could apply a list of tags to a path and then, executing repex will addre
 
 NOTE: tags only apply when executing repex via its CLI or when calling the "iterate" function (see below).
 
-#### Variables
+## Variables
 
 Variables are one of the strongest features of repex. They provide a way of injecting dynamic info to the config file.
 

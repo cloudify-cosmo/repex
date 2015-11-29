@@ -226,6 +226,40 @@ class TestBase(testtools.TestCase):
         result = rpx.handle_file(file, verbose=True)
         self.assertFalse(result)
 
+    def test_repl_multiple_files(self):
+        params = {
+            '-t': 'mock_VERSION',
+            '-p': 'multiple',
+            '-b': 'repex/tests/resources/',
+            '-x': 'multiple/exclude',
+            '-m': '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?',
+            '-r': '\d+\.\d+(\.\d+)?(-\w\d+)?',
+            '-w': '3.1.0-m3',
+            '--must-include=': 'date',
+            '--validator=': 'repex/tests/resources/validator.py:validate',
+        }
+        result = _invoke_click('repl', params)
+        self.assertEqual(result.exit_code, codes.mapping['validator_failed'])
+        # verify that all files were modified
+        for version_file in self.version_files_without_excluded:
+            with open(version_file) as f:
+                self.assertIn('3.1.0-m3', f.read())
+        # # all other than the excluded ones
+        for version_file in self.excluded_files:
+            with open(version_file) as f:
+                self.assertIn('3.1.0-m2', f.read())
+
+        params['-w'] = '3.1.0-m2'
+        result = _invoke_click('repl', params)
+        self.assertEqual(result.exit_code, codes.mapping['validator_failed'])
+        for version_file in self.version_files_without_excluded:
+            with open(version_file) as f:
+                self.assertIn('3.1.0-m2', f.read())
+        # # all other than the excluded ones
+        for version_file in self.excluded_files:
+            with open(version_file) as f:
+                self.assertIn('3.1.0-m2', f.read())
+
     def test_iterate_multiple_files(self):
         fd, tmp = tempfile.mkstemp()
         os.close(fd)
@@ -238,7 +272,7 @@ class TestBase(testtools.TestCase):
             '--var=': '\'preversion\'=\'3.1.0-m2\'',
         }
         try:
-            _invoke_click('execute', params)
+            _invoke_click('iter', params)
         finally:
             os.remove(tmp)
         # verify that all files were modified

@@ -90,7 +90,7 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
                                       'list...'.format(file_path))
                             target_files.append(file_path)
                         else:
-                            lgr.debug('{0} is excluded, Skipping...'.format(
+                            lgr.info('{0} is excluded, Skipping...'.format(
                                 file_path))
         else:
             lgr.debug('{0} is excluded. Skipping...'.format(root))
@@ -105,8 +105,8 @@ class Validator():
 
     def validate(self, path_to_validate):
         validator = self._import_validator(self.config['path'])
-        lgr.info('Validating {0} using {1}...'.format(
-            path_to_validate, self.config['function']))
+        lgr.info('Validating {0} using {1}:{2}...'.format(
+            path_to_validate, self.config['path'], self.config['function']))
         validated = getattr(
             validator, self.config['function'])(path_to_validate, lgr)
         if validated is not True:
@@ -292,8 +292,9 @@ def handle_path(p, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
-    var_expander = VarHandler(verbose)
-    p = var_expander.expand(variables, p)
+    if variables:
+        var_expander = VarHandler(verbose)
+        p = var_expander.expand(variables, p)
     p['base_directory'] = p.get('base_directory', '')
     lgr.debug('path to process: {0}'.format(
         os.path.join(p['base_directory'], p['path'])))
@@ -473,6 +474,18 @@ class Repex():
         shutil.move(temp_file, output_file)
 
 
+def _build_vars_dict(vars_file='', var=None):
+    repex_vars = {}
+    if vars_file:
+        with open(vars_file, 'r') as c:
+            repex_vars = yaml.safe_load(c.read())
+    if var:
+        for v in var:
+            key, value = v.split('=')
+            repex_vars.update({str(key): str(value)})
+    return repex_vars
+
+
 class RepexError(Exception):
     pass
 
@@ -494,21 +507,84 @@ def main():
               help='A tag to match with a path tags. '
               'Can be used multiple times.')
 @click.option('-v', '--verbose', default=False, is_flag=True)
-def execute(config, vars_file, var, tag, verbose):
+def iter(config, vars_file, var, tag, verbose):
     """Runs Repex
     """
     _set_global_verbosity_level(verbose)
     logger.configure()
 
-    repex_vars = {}
-    if vars_file:
-        with open(vars_file, 'r') as c:
-            repex_vars = yaml.safe_load(c.read())
-    if var:
-        for v in var:
-            key, value = v.split('=')
-            repex_vars.update({str(key): str(value)})
+    repex_vars = _build_vars_dict(vars_file, var)
     iterate(config, repex_vars, verbose, list(tag))
 
 
-main.add_command(execute)
+@click.command()
+@click.option('-t', '--ftype', default=None, required=False,
+              help='A regex file name to look for. '
+                   'Defaults to `None`, which means that '
+                   '`path` must be a path to a single file.')
+@click.option('-p', '--path', required=True,
+              help='A regex path to look in.')
+@click.option('-b', '--basedir', default=os.getcwd(), required=False,
+              help='Where to start looking for `path` from. '
+                   'Defaults to the cwd.')
+@click.option('-m', '--match', required=False,
+              help='Context match for `replace`. '
+                   'If this is ommited, the context will be the '
+                   'entire content of the file')
+@click.option('-r', '--replace', required=True,
+              help='String to replace.')
+@click.option('-w', '--rwith', required=True,
+              help='String to replace with.')
+@click.option('-x', '--exclude', required=False, multiple=True,
+              help='Paths to exclude when searching for files to handle. '
+                   'This flag can be used multiple times.')
+@click.option('--must-include', required=False, multiple=True,
+              help='Files found must include this string. '
+                   'This flag can be used multiple times.')
+@click.option('--validate-before', default=False, is_flag=True,
+              help='Validate that the `replace` was found in the file '
+                   'before attempting to replace.')
+@click.option('--validator', required=False,
+              help='Validator file:function (e.g. validator.py:valid_func.')
+@click.option('--validator-type', required=False, default='per_type',
+              type=click.Choice(['per_file', 'per_type']),
+              help='Type of validation to perform. `per_type` will validate '
+                   'the last file found while `per_file` will run validation '
+                   'for each file found. Defaults to `per_type`.')
+@click.option('-v', '--verbose', default=False, is_flag=True)
+def repl(ftype, path, basedir, match, replace, rwith, exclude, must_include,
+         validate_before, validator, validator_type,
+         verbose):
+    """Handles replacements of files in a single path.
+    """
+    _set_global_verbosity_level(verbose)
+    logger.configure()
+
+    replace = r'{0}'.format(replace)
+    path = r'{0}'.format(path)
+    ftype = r'{0}'.format(ftype) if ftype else None
+    match = r'{0}'.format(match) if match else replace
+
+    pathobj = {
+        'type': ftype,
+        'path': path,
+        'base_directory': basedir,
+        'match': match,
+        'replace': replace,
+        'with': rwith,
+        'excluded': list(exclude),
+        'must_include': list(must_include),
+        'validate_before': validate_before
+    }
+    if validator:
+        validator_path, validator_function = validator.split(':')
+        pathobj['validator'] = {
+            'type': validator_type,
+            'path': validator_path,
+            'function': validator_function
+        }
+
+    handle_path(pathobj, verbose=verbose)
+
+main.add_command(iter)
+main.add_command(repl)

@@ -108,21 +108,6 @@ def my_validation_function(version_file_path, logger):
 
 ```
 
-## CLI
-
-Repex exposes a CLI which can be used to basically do anything you need.
-
-```bash
-rpx execute -c config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
-```
-
-### Notes
-
-* While the CLI can execute repex, it will be more likely that you would use the Python API to execute the `iterate` function as you will most probably want to dynamically pass variables according to certain logic provided by your system.
-* Variables provided via the `--var` flag will override variables provided within the `--vars-file`.
-* Currently, you can't pass variables which contain a `=` within them.
-
-
 ## Config YAML Explained
 
 IMPORTANT NOTE: variables MUST be enclosed within single or double quotes or they will not expand! Might fix that in future versions...
@@ -176,6 +161,42 @@ Some important facts about variables:
 
 - Variables with the same name sent via the API will override the hardcoded ones.
 - API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case and prefixed with `REPEX_VAR_` (so the variable "version" can be overriden by an env var called "REPEX_VAR_VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number.
+
+## CLI
+
+Repex exposes a CLI which can be used to do one of two things:
+
+1. Execute repex using a config file.
+2. Use repex's power to basically replace sed in the command line.
+
+### Using a config file with the CLI
+
+```bash
+rpx iter -c config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
+```
+
+### Using repex like sed
+
+Just like sed:
+
+```bash
+rpx repl --path /path/to/my/file --replace 3.3 --rwith 3.4
+```
+
+Much, much more than sed:
+
+```bash
+rpx repl -p check_validity/resources/\* -t VERSION -r 3.3.0-m\\d+ -w 2.1.1 --validator-path check_validity/resources/validator.py --validator-function validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/file --validate-before -v
+```
+
+Much like the definition of a `path` in the config, this will expose repex's abilities using a single CLI command.
+Note that you must escape special chars where applicable, that is, where regex strings are provided and bash expansion takes place.
+
+### Notes
+
+* In complex scenarios, while the CLI can execute repex, it will be more likely that you would use the Python API to execute the `iterate` function as you will most probably want to dynamically pass variables according to certain logic provided by your system.
+* Variables provided via the `--var` flag will override variables provided within the `--vars-file`.
+* Currently, you can't pass variables which contain a `=` within them.
 
 
 ## Testing

@@ -144,15 +144,14 @@ A user could apply a list of tags to a path and then, executing repex will addre
 * If a user did not supply tags and the path does not contain tags, the path will be addressed.
 * If a user proivded `any` as a tag, all paths, regardless of whether they have or haven't tags will be addressed.
 
-NOTE: tags only apply when executing repex via its CLI or when calling the "iterate" function (see below).
-
 ## Variables
 
 Variables are one of the strongest features of repex. They provide a way of injecting dynamic info to the config file.
 
-Variables can be declared in 3 ways:
-- Harcoded in the config under a top level `variables` section.
+Variables can be declared in 4 ways:
+- Provided via the CLI
 - Provided via the API.
+- Harcoded in the config under a top level `variables` section.
 - Set as Environment Variables.
 
 See the example above for a variable definition reference.

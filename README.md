@@ -186,8 +186,10 @@ rpx repl --path /path/to/my/file --replace 3.3 --rwith 3.4
 Much, much more than sed:
 
 ```bash
-rpx repl -p check_validity/resources/\* -t VERSION -r 3.3.0-m\\d+ -w 2.1.1 --validator-path check_validity/resources/validator.py --validator-function validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/file --validate-before -v
+rpx repl -p check_validity/resources/\* -t VERSION -r 3.3.0-m\\d+ -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before -v
 ```
+
+This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
 
 Much like the definition of a `path` in the config, this will expose repex's abilities using a single CLI command.
 Note that you must escape special chars where applicable, that is, where regex strings are provided and bash expansion takes place.

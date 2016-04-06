@@ -68,7 +68,7 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
         sys.exit(codes.mapping['excluded_paths_must_be_a_list'])
     excluded_paths = [os.path.join(base_dir, x).rstrip('/')
                       for x in excluded_paths]
-    lgr.debug('Excluded paths: {0}'.format(excluded_paths))
+    lgr.info('Excluded paths: {0}'.format(excluded_paths))
     lgr.info('Looking for {0}\'s under {1} in {2}...'.format(
         file_name_regex, path, base_dir))
     if exclude_file_name_regex:
@@ -89,11 +89,6 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
                             lgr.debug('{0} is a match. Appending to '
                                       'list...'.format(file_path))
                             target_files.append(file_path)
-                        else:
-                            lgr.info('{0} is excluded, Skipping...'.format(
-                                file_path))
-        else:
-            lgr.debug('{0} is excluded. Skipping...'.format(root))
     lgr.info('Files to handle: {0}'.format(target_files))
     return target_files
 

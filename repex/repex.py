@@ -1,9 +1,9 @@
-import logging
 import os
 import re
-import shutil
 import sys
 import imp
+import shutil
+import logging
 
 import yaml
 import click
@@ -21,10 +21,6 @@ lgr = logger.init()
 
 
 def _set_global_verbosity_level(is_verbose_output=False):
-    """sets the global verbosity level for console and the lgr logger.
-
-    :param bool is_verbose_output: should be output be verbose
-    """
     if is_verbose_output:
         lgr.setLevel(logging.DEBUG)
     else:
@@ -32,7 +28,7 @@ def _set_global_verbosity_level(is_verbose_output=False):
 
 
 def import_config(config_file):
-    """returns a configuration object
+    """Returns a configuration object
 
     :param string config_file: path to config file
     """
@@ -61,14 +57,16 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     `exclude_file_name_regex` are files to be excluded as well.
     """
     _set_global_verbosity_level(verbose)
+
     excluded_paths = excluded_paths if excluded_paths else []
     if not isinstance(excluded_paths, list):
         lgr.error('Excluded_paths must be of type list (not {0})'.format(
             type(excluded_paths)))
         sys.exit(codes.mapping['excluded_paths_must_be_a_list'])
-    excluded_paths = [os.path.join(base_dir, x).rstrip('/')
-                      for x in excluded_paths]
+    excluded_paths = [os.path.join(base_dir, excluded_path).rstrip('/')
+                      for excluded_path in excluded_paths]
     lgr.info('Excluded paths: {0}'.format(excluded_paths))
+
     lgr.info('Looking for {0}\'s under {1} in {2}...'.format(
         file_name_regex, path, base_dir))
     if exclude_file_name_regex:
@@ -77,19 +75,19 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
     target_files = []
     for root, _, files in os.walk(base_dir):
         # for each folder in root, check if it begins with one of excluded_path
-        if not root.startswith(tuple(excluded_paths)):
-            if re.search(r'{0}'.format(path), root):
-                for f in files:
-                    file_path = os.path.join(root, f)
-                    if os.path.isfile(file_path) \
-                            and re.match(r'{0}'.format(file_name_regex), f) \
-                            and not re.match(r'{0}'.format(
-                                exclude_file_name_regex), f):
-                        if file_path not in excluded_paths:
-                            lgr.debug('{0} is a match. Appending to '
-                                      'list...'.format(file_path))
-                            target_files.append(file_path)
-    lgr.info('Files to handle: {0}'.format(target_files))
+        if not root.startswith(tuple(excluded_paths)) \
+                and re.search(r'{0}'.format(path), root):
+            for f in files:
+                file_path = os.path.join(root, f)
+                is_file = os.path.isfile(file_path)
+                matched = re.match(r'{0}'.format(file_name_regex), f)
+                excluded = re.match(r'{0}'.format(exclude_file_name_regex), f)
+                if is_file and matched and not excluded \
+                        and file_path not in excluded_paths:
+                    lgr.debug('{0} is a match. Appending to '
+                              'list...'.format(file_path))
+                    target_files.append(file_path)
+    lgr.debug('Files to handle: {0}'.format(target_files))
     return target_files
 
 
@@ -137,13 +135,13 @@ class Validator():
 
 
 class VarHandler():
-    """handles variable expansion and replacement
+    """Handles variable expansion and replacement
     """
     def __init__(self, verbose=False):
         _set_global_verbosity_level(verbose)
 
     def expand(self, repex_vars, attributes):
-        """receives a list of variables and a dict of attributes
+        """Receives a list of variables and a dict of attributes
         and iterates through them to expand a variable in an attribute
 
         attributes:
@@ -176,49 +174,50 @@ class VarHandler():
         :param dict vars: dict of variables
         :param dict attributes: dict of attributes as shown above.
         """
-
-        # iterate over all variables
-        lgr.info('expanding variables...')
+        lgr.debug('Expanding variables...')
         for var, value in repex_vars.items():
             for attribute in attributes.keys():
                 obj = attributes[attribute]
                 if isinstance(obj, str):
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined
-                    attributes[attribute] = self.expand_var(
-                        var, value, obj)
+                    attributes[attribute] = \
+                        self._expand_var(var, value, obj)
                 elif isinstance(obj, dict):
                     for k, v in obj.items():
-                        attributes[attribute][k] = self.expand_var(
-                            var, value, v)
+                        attributes[attribute][k] = \
+                            self._expand_var(var, value, v)
                 elif isinstance(obj, list):
                     for item in obj:
-                        i = obj.index(item)
-                        attributes[attribute][i] = self.expand_var(
-                            var, value, item)
+                        index = obj.index(item)
+                        attributes[attribute][index] = \
+                            self._expand_var(var, value, item)
         return attributes
 
-    def expand_var(self, variable, value, in_string):
-        """expands variable to its corresponding value in_string
+    def _expand_var(self, variable, value, in_string):
+        """Expands variable to its corresponding value in_string
 
         :param string variable: variable name
         :param value: value to replace with
         :param string in_string: the string to replace in
         """
-        def check_if_expanded(string, variable):
-            lgr.debug('verifying that string {0} expanded'.format(
-                string))
-            if re.search('{{ ' + '.{0}'.format(variable) + ' }}', string):
-                lgr.error('string {0} failed to expand'.format(string))
-                sys.exit(codes.mapping['string_failed_to_expand'])
+        var_string = '{{ ' + '.{0}'.format(variable) + ' }}'
 
-        var = "{{ " + ".{0}".format(variable) + " }}"
-        if re.search(var, in_string):
-            lgr.debug('expanding var {0} to {1} in {2}'.format(
+        def check_if_expanded(string, variable):
+            lgr.debug('Verifying that string {0} expanded'.format(
+                string))
+            if re.search(var_string, string):
+                return False
+            return True
+
+        if re.search(var_string, in_string):
+            lgr.debug('Expanding var {0} to {1} in {2}'.format(
                 variable, value, in_string))
-            expanded_variable = re.sub("{{ " + ".{0}".format(
-                variable) + " }}", str(value), in_string)
-            check_if_expanded(expanded_variable, variable)
+            expanded_variable = re.sub(var_string, str(value), in_string)
+            if not check_if_expanded(expanded_variable, variable):
+                lgr.error('String {0} failed to expand.'.format(
+                    expanded_variable))
+                sys.exit(codes.mapping['string_failed_to_expand'])
             return expanded_variable
         return in_string
 
@@ -237,19 +236,23 @@ def iterate(config, variables=None, verbose=False, tags=None):
     :param bool verbose: verbose output flag
     """
     _set_global_verbosity_level(verbose)
+
     if os.path.isfile(str(config)):
         config = import_config(config)
     elif not isinstance(config, dict):
         raise RuntimeError('`config` must either be a valid repex config '
                            'dict or a path to a file.')
+
     variables = variables or {}
     if not isinstance(variables, dict):
         raise RuntimeError('`variables` must be of type dict.')
+
     try:
         paths = config['paths']
     except TypeError:
         lgr.error('No paths configured in yaml.')
         sys.exit(codes.mapping['no_paths_configured'])
+
     repex_vars = config.get('variables', {})
     repex_vars.update(variables)
     for var, value in os.environ.items():
@@ -261,6 +264,7 @@ def iterate(config, variables=None, verbose=False, tags=None):
     if not isinstance(user_selected_tags, list):
         raise RuntimeError('tags must be of type list.')
     lgr.debug('User tags: {0}'.format(user_selected_tags))
+
     for path in paths:
         path_tags = path.get('tags', [])
         lgr.debug('Checking user tags against path tags: {0}'.format(
@@ -278,10 +282,10 @@ def iterate(config, variables=None, verbose=False, tags=None):
                           '{0}, skipping...'.format(path))
 
 
-def handle_path(p, variables=None, verbose=False):
-    """Iterates over all files in p['path']
+def handle_path(path_dict, variables=None, verbose=False):
+    """Iterates over all files in path_dict['path']
 
-    :param dict p: a dict of a specific path in the config
+    :param dict path_dict: a dict of a specific path in the config
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
@@ -289,84 +293,91 @@ def handle_path(p, variables=None, verbose=False):
     variables = variables if variables else {}
     if variables:
         var_expander = VarHandler(verbose)
-        p = var_expander.expand(variables, p)
-    p['base_directory'] = p.get('base_directory', '')
+        path_dict = var_expander.expand(variables, path_dict)
+    path_dict['base_directory'] = path_dict.get('base_directory', '')
     lgr.debug('path to process: {0}'.format(
-        os.path.join(p['base_directory'], p['path'])))
-    path_to_handle = os.path.join(p['base_directory'], p['path'])
+        os.path.join(path_dict['base_directory'], path_dict['path'])))
+    path_to_handle = os.path.join(
+        path_dict['base_directory'], path_dict['path'])
 
-    validator = 'validator' in p
-    if validator:
-        validator_config = p['validator']
-        v = Validator(validator_config)
+    validate = 'validator' in path_dict
+    if validate:
+        validator_config = path_dict['validator']
+        validator = Validator(validator_config)
         validator_type = validator_config.get('type') or 'per_type'
 
-    if not p.get('type'):
+    if not path_dict.get('type'):
         if os.path.isfile(path_to_handle):
-            p['path'] = path_to_handle
-            handle_file(p, variables, verbose)
-            if validator:
-                v.validate(p['path'])
+            path_dict['path'] = path_to_handle
+            handle_file(path_dict, variables, verbose)
+            if validate:
+                validator.validate(path_dict['path'])
         else:
-            lgr.error('file not found: {0}'.format(path_to_handle))
+            lgr.error('File not found: {0}'.format(path_to_handle))
             sys.exit(codes.mapping['file_not_found'])
     else:
         if os.path.isfile(path_to_handle):
-            lgr.error('if `type` is specified, `path` must not be a '
+            lgr.error('If `type` is specified, `path` must not be a '
                       'path to a single file.')
             sys.exit(codes.mapping['type_path_collision'])
-        if p.get('to_file'):
+        if path_dict.get('to_file'):
             lgr.error('"to_file" requires explicit "path"')
             sys.exit(codes.mapping['to_file_requires_explicit_path'])
         files = get_all_files(
-            p['type'], p['path'], p['base_directory'],
-            p.get('excluded', []), verbose)
-        lgr.info('files found: {0}'.format(files))
-        for f in files:
-            p['path'] = f
-            handle_file(p, variables, verbose)
-            if validator and validator_type == 'per_file':
-                v.validate(p['path'])
-        if validator and validator_type == 'per_type':
-            v.validate(p['path'])
+            path_dict['type'], path_dict['path'], path_dict['base_directory'],
+            path_dict.get('excluded', []), verbose)
+        lgr.info('Files found: {0}'.format(files))
+        for file_to_handle in files:
+            path_dict['path'] = file_to_handle
+            handle_file(path_dict, variables, verbose)
+
+            if validate and validator_type == 'per_file':
+                validator.validate(path_dict['path'])
+
+        if validate and validator_type == 'per_type':
+            validator.validate(path_dict['path'])
 
 
-def handle_file(f, variables=None, verbose=False):
-    """handle a single file
+def handle_file(path_dict, variables=None, verbose=False):
+    """Handle a single file
 
-    this will perform a validation if necessary and then
+    This will perform a validation if necessary and then
     perform the replacement in the file.
 
-    :param dict f: a dict of a single file's properties
+    :param dict path_dict: a dict of a single file's properties
     :param dict variables: a dict of variables (can be None)
     :param bool verbose: verbose output flag
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
     if not isinstance(variables, dict):
-        raise RuntimeError('variables must be of type dict')
-    if not os.path.isfile(f['path']):
-        lgr.error('file not found: {0}'.format(f['path']))
+        raise RuntimeError('Variables must be of type dict')
+    lgr.debug('Vars: {0}'.format(variables))
+
+    if not os.path.isfile(path_dict['path']):
+        lgr.error('File not found: {0}'.format(path_dict['path']))
         return False
-    p = Repex(
-        f['path'],
-        f['match'],
-        f['replace'],
-        f['with'],
-        f.get('to_file', False),
+
+    rpx = Repex(
+        path_dict['path'],
+        path_dict['match'],
+        path_dict['replace'],
+        path_dict['with'],
+        path_dict.get('to_file', False),
         verbose
     )
-    lgr.debug('vars: {0}'.format(variables))
-    validate_before = f.get('validate_before', DEFAULT_VALIDATE_BEFORE)
+
+    validate_before = path_dict.get('validate_before', DEFAULT_VALIDATE_BEFORE)
     if not isinstance(validate_before, bool):
         lgr.error('validate_before must be of type boolean')
         sys.exit(codes.mapping['validate_before_must_be_boolean'])
-    must_include = f.get('must_include', DEFAULT_MUST_INCLUDE)
-    if validate_before and not p.validate_before(must_include=must_include):
+    must_include = path_dict.get('must_include', DEFAULT_MUST_INCLUDE)
+    if validate_before and not rpx.validate_before(must_include=must_include):
         lgr.error('prevalidation failed')
         sys.exit(codes.mapping['prevalidation_failed'])
-    matches = p.find_matches()
-    p.replace(matches)
+
+    matches = rpx.find_matches()
+    rpx.replace(matches)
 
 
 class Repex():
@@ -387,22 +398,19 @@ class Repex():
         def verify_includes(must_include):
             """verifies that all required strings are in the file
             """
-            lgr.debug('looking for required strings: {0}'.format(
+            lgr.debug('Looking for required strings: {0}'.format(
                 must_include))
             # iterate over the strings and verify that
             # they exist in the file
             included = True
             for string in must_include:
-                with open(self.path) as f:
-                    if not any(re.search(r'{0}'.format(
-                            string), line) for line in f):
-                        lgr.error(
-                            'required string "{0}" not found in {1}'.format(
-                                string, self.path))
-                        included = False
+                if not re.search(r'{0}'.format(string), self.content):
+                    lgr.error('Required string "{0}" not found in {1}'.format(
+                        string, self.path))
+                    included = False
             if not included:
                 return False
-            lgr.debug('required strings found')
+            lgr.debug('Required strings found.')
             return True
 
         def validate_pattern(force_pattern, force_match):
@@ -424,7 +432,7 @@ class Repex():
                         self.pattern), match) for match in m):
                     # pattern does not occur in file so we are done.
                     lgr.warning(
-                        'pattern {0} not found in any matches'.format(
+                        'Pattern {0} not found in any matches'.format(
                             self.pattern))
                     if force_pattern:
                         return False
@@ -438,47 +446,48 @@ class Repex():
         return True
 
     def find_matches(self):
-        """finds all matches of an expression in a file
+        """Finds all matches of an expression in a file
         """
-        r = re.compile('(?P<matchgroup>{0})'.format(
-            self.match))
-        x = [match.groupdict() for match in r.finditer(self.content)]
-        m = [d['matchgroup'] for d in x if d.get('matchgroup')]
-        lgr.debug('matches found: {0}'.format(m))
-        return m
+        # compile the expression according to which we will search for matches
+        expression = re.compile('(?P<matchgroup>{0})'.format(self.match))
+        # look for all match groups in the content
+        x = [match.groupdict() for match in expression.finditer(self.content)]
+        # filter out content not in the matchgroup
+        matches = [d['matchgroup'] for d in x if d.get('matchgroup')]
+        lgr.debug('Matches found: {0}'.format(matches))
+        return matches
 
     def replace(self, matches):
-        """replaces all occurences of the regex in all matches
+        """Replaces all occurences of the regex in all matches
         from a file with a specific value.
         """
         temp_file = self.path + ".tmp"
-        lgr.debug('matches to replace: {0}'.format(matches))
+        lgr.debug('Matches to replace: {0}'.format(matches))
         output_file = self.to_file if self.to_file else self.path
         if not self.to_file:
             shutil.copy2(output_file, temp_file)
         with open(self.path) as f:
             content = f.read()
-        for m in matches:
-            # replace pattern in match
-            r = re.sub(self.pattern, self.rwith, m)
-            lgr.info('replacing {0} with {1} in {2}'.format(
-                m, r, self.path))
+        for match in matches:
+            string = re.sub(self.pattern, self.rwith, match)
+            lgr.info('Replacing {0} with {1} in {2}'.format(
+                match, string, self.path))
             # then replace the previous match with the newly formatted one
-            content = content.replace(m, r)
+            content = content.replace(match, string)
         with open(temp_file, "w") as out:
             out.write(content)
-        lgr.info('writing output to {0}'.format(output_file))
+        lgr.info('Writing output to {0}'.format(output_file))
         shutil.move(temp_file, output_file)
 
 
-def _build_vars_dict(vars_file='', var=None):
+def _build_vars_dict(vars_file='', vars=None):
     repex_vars = {}
     if vars_file:
         with open(vars_file, 'r') as c:
             repex_vars = yaml.safe_load(c.read())
-    if var:
-        for v in var:
-            key, value = v.split('=')
+    if vars:
+        for var in vars:
+            key, value = var.split('=')
             repex_vars.update({str(key): str(value)})
     return repex_vars
 
@@ -505,7 +514,7 @@ def main():
               'Can be used multiple times.')
 @click.option('-v', '--verbose', default=False, is_flag=True)
 def iter(config, vars_file, var, tag, verbose):
-    """Runs Repex
+    """Executes Repex based on a config file.
     """
     _set_global_verbosity_level(verbose)
     logger.configure()

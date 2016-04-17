@@ -1,10 +1,10 @@
 repex (REPlace (regular) EXpression)
 ====================================
 
-* Master [![Circle CI](https://circleci.com/gh/cloudify-cosmo/repex/tree/master.svg?style=shield)](https://circleci.com/gh/cloudify-cosmo/repex/tree/master)
-* Master Branch [![Build Status](https://travis-ci.org/cloudify-cosmo/repex.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/repex)
-* PyPI [![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
-* Version [![PypI](http://img.shields.io/pypi/v/repex.svg)](http://img.shields.io/pypi/v/repex.svg)
+[![Circle CI](https://circleci.com/gh/cloudify-cosmo/repex/tree/master.svg?style=shield)](https://circleci.com/gh/cloudify-cosmo/repex/tree/master)
+[![Build Status](https://travis-ci.org/cloudify-cosmo/repex.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/repex)
+[![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
+[![PypI](http://img.shields.io/pypi/v/repex.svg)](http://img.shields.io/pypi/v/repex.svg)
 
 NOTE: Beginning with `repex 0.4.1`, file attributes are kept when replacing.
 

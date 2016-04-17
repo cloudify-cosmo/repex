@@ -6,6 +6,7 @@ repex (REPlace (regular) EXpression)
 * PyPI [![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
 * Version [![PypI](http://img.shields.io/pypi/v/repex.svg)](http://img.shields.io/pypi/v/repex.svg)
 
+NOTE: Beginning with `repex 0.4.1`, file attributes are kept when replacing.
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
@@ -133,6 +134,7 @@ In case you're providing a path to a file rather than a directory:
 
 - `type` and `base_directory` are depracated
 - you can provide a `to_file` key with the path to the file you'd like to create after replacing.
+
 
 ## Tags
 

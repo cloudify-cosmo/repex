@@ -458,6 +458,9 @@ class Repex():
         """
         temp_file = self.path + ".tmp"
         lgr.debug('matches to replace: {0}'.format(matches))
+        output_file = self.to_file if self.to_file else self.path
+        if not self.to_file:
+            shutil.copy2(output_file, temp_file)
         with open(self.path) as f:
             content = f.read()
         for m in matches:
@@ -469,7 +472,6 @@ class Repex():
             content = content.replace(m, r)
         with open(temp_file, "w") as out:
             out.write(content)
-        output_file = self.to_file if self.to_file else self.path
         lgr.info('writing output to {0}'.format(output_file))
         shutil.move(temp_file, output_file)
 

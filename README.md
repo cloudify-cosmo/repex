@@ -3,6 +3,7 @@ repex (REPlace (regular) EXpression)
 
 [![Circle CI](https://circleci.com/gh/cloudify-cosmo/repex/tree/master.svg?style=shield)](https://circleci.com/gh/cloudify-cosmo/repex/tree/master)
 [![Build Status](https://travis-ci.org/cloudify-cosmo/repex.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/repex)
+[![Build status](https://ci.appveyor.com/api/projects/status/kn6yqwqhsdn54ich/branch/master?svg=true)](https://ci.appveyor.com/project/Cloudify/repex/branch/master)
 [![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
 [![PypI](http://img.shields.io/pypi/v/repex.svg)](http://img.shields.io/pypi/v/repex.svg)
 

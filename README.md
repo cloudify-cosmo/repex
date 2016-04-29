@@ -62,7 +62,7 @@ rpx repl -p check_validity/resources/\* -t VERSION -r 3.3.0-m\\d+ -w 2.1.1 --val
 
 This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
 
-Note that you must escape special chars where applicable, that is, where regex strings are provided and bash expansion takes place.
+Note that you must either escape special chars or use single quotes where applicable, that is, where regex strings are provided and bash expansion takes place.
 
 #### Notes
 

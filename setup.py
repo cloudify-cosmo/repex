@@ -1,6 +1,6 @@
-from setuptools import setup
 import os
 import codecs
+from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -12,7 +12,7 @@ def read(*parts):
 
 setup(
     name='repex',
-    version="0.4.2",
+    version="0.4.3",
     url='https://github.com/cloudify-cosmo/repex',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',

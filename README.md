@@ -8,6 +8,9 @@ repex (REPlace (regular) EXpression)
 
 NOTE: Beginning with `repex 0.4.1`, file attributes are kept when replacing.
 
+NOTE: Beginning with `repex 0.4.3`, Windows is officially supported (and tested via appveyor).
+
+
 `repex` replaces strings in single/multiple files based on regular expressions.
 
 Why not use sed you ask? Because `repex` provides some layers of protection and an easy to use config yaml in which you easily add new files and folders to iterate through.

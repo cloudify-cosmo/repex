@@ -73,10 +73,15 @@ def get_all_files(file_name_regex, path, base_dir, excluded_paths=None,
         lgr.info('Excluding all files named: {0}'.format(
             exclude_file_name_regex))
     target_files = []
+
+    def replace_backslashes(string):
+        return string.replace('\\', '/')
+
     for root, _, files in os.walk(base_dir):
         # for each folder in root, check if it begins with one of excluded_path
         if not root.startswith(tuple(excluded_paths)) \
-                and re.search(r'{0}'.format(path), root):
+                and re.search(r'{0}'.format(
+                    replace_backslashes(path)), replace_backslashes(root)):
             for f in files:
                 file_path = os.path.join(root, f)
                 is_file = os.path.isfile(file_path)

@@ -57,10 +57,10 @@ rpx repl --path /path/to/my/file --replace 3.3 --rwith 3.4
 Much, much more than sed:
 
 ```bash
-rpx repl -p 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before -v
+rpx repl -p 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before --backup -v
 ```
 
-This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
+This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION". All files replaced will be backed up to ~/.repex/...
 
 Note that you must either escape special chars or use single quotes where applicable, that is, where regex strings are provided and bash expansion takes place.
 
@@ -125,6 +125,7 @@ paths:
             - "{{ .valstr }}"
             - commit
             - version
+        backup_before: true
         validator:
             type: per_file
             path: '{{ .basedir }}/validator/script/path.py'
@@ -178,6 +179,7 @@ Don't forget the spaces!
 - `with` - what you replace with.
 - `validate_before` - a flag stating that you'd like to validate that the pattern you're looking for exists in the file and that all strings in `must_include` exists in the file as well.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
+- `backup_before` - backup the replaced files into ~/.repex/backup-DATE/#RELATIVE_PATH#
 - `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful while any other return value will fail the validation. The validating function receives the file's path as and a logger as parameters.
 
 In case you're providing a path to a file rather than a directory:

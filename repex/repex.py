@@ -4,6 +4,7 @@ import sys
 import imp
 import shutil
 import logging
+import datetime
 
 import yaml
 import click
@@ -16,6 +17,7 @@ DEFAULT_VALIDATE_BEFORE = True
 DEFAULT_VALIDATE_AFTER = False
 DEFAULT_MUST_INCLUDE = []
 REPEX_VAR_PREFIX = 'REPEX_VAR_'
+REPEX_WORK_DIR = os.path.expanduser('~/.repex')
 
 lgr = logger.init()
 
@@ -142,11 +144,12 @@ class Validator():
 class VarHandler():
     """Handles variable expansion and replacement
     """
+
     def __init__(self, verbose=False):
         _set_global_verbosity_level(verbose)
 
     def expand(self, repex_vars, attributes):
-        """Receives a list of variables and a dict of attributes
+        r"""Receives a list of variables and a dict of attributes
         and iterates through them to expand a variable in an attribute
 
         attributes:
@@ -269,7 +272,6 @@ def iterate(config, variables=None, verbose=False, tags=None):
     if not isinstance(user_selected_tags, list):
         raise RuntimeError('tags must be of type list.')
     lgr.debug('User tags: {0}'.format(user_selected_tags))
-
     for path in paths:
         path_tags = path.get('tags', [])
         lgr.debug('Checking user tags against path tags: {0}'.format(
@@ -304,6 +306,11 @@ def handle_path(path_dict, variables=None, verbose=False):
         os.path.join(path_dict['base_directory'], path_dict['path'])))
     path_to_handle = os.path.join(
         path_dict['base_directory'], path_dict['path'])
+
+    if path_dict['backup_before']:
+        path_dict['backup_dir'] = _generate_repex_temporary_path()
+        lgr.info('Backup required. Will backup all files to relative paths '
+                 'under: {0}'.format(path_dict['backup_dir']))
 
     validate = 'validator' in path_dict
     if validate:
@@ -369,6 +376,7 @@ def handle_file(path_dict, variables=None, verbose=False):
         path_dict['replace'],
         path_dict['with'],
         path_dict.get('to_file', False),
+        path_dict.get('backup_dir', None),
         verbose
     )
 
@@ -387,12 +395,13 @@ def handle_file(path_dict, variables=None, verbose=False):
 
 class Repex():
     def __init__(self, path, match, pattern, rwith,
-                 to_file=False, verbose=False):
+                 to_file=False, backup_dir=None, verbose=False):
         self.path = path
         self.match = match
         self.pattern = pattern
         self.rwith = rwith
         self.to_file = to_file
+        self.backup_dir = backup_dir
         with open(self.path) as f:
             self.content = f.read()
         _set_global_verbosity_level(verbose)
@@ -401,7 +410,7 @@ class Repex():
                         must_include=[]):
 
         def verify_includes(must_include):
-            """verifies that all required strings are in the file
+            """Verifies that all required strings are in the file
             """
             lgr.debug('Looking for required strings: {0}'.format(
                 must_include))
@@ -419,7 +428,7 @@ class Repex():
             return True
 
         def validate_pattern(force_pattern, force_match):
-            """verifies that the pattern exists
+            """Verifies that the pattern exists
             """
             lgr.debug('looking for pattern {0}'.format(self.pattern))
             # verify that the pattern you're looking to replace
@@ -471,6 +480,8 @@ class Repex():
         output_file = self.to_file if self.to_file else self.path
         if not self.to_file:
             shutil.copy2(output_file, temp_file)
+        if self.backup_dir:
+            self._backup(output_file)
         with open(self.path) as f:
             content = f.read()
         for match in matches:
@@ -483,6 +494,20 @@ class Repex():
             out.write(content)
         lgr.info('Writing output to {0}'.format(output_file))
         shutil.move(temp_file, output_file)
+
+    def _backup(self, output_file):
+        relative_backup_dir = os.path.dirname(output_file).lstrip('/')
+        output_filename = os.path.basename(output_file)
+        full_backup_dir = os.path.join(self.backup_dir, relative_backup_dir)
+        if not os.path.isdir(full_backup_dir):
+            os.makedirs(full_backup_dir)
+        output_backup_path = os.path.join(full_backup_dir, output_filename)
+        shutil.copy2(output_file, output_backup_path)
+
+
+def _generate_repex_temporary_path():
+    return os.path.join(REPEX_WORK_DIR, 'backup-{0}'.format(
+        str(datetime.datetime.now().strftime('%Y%m%dT%H%M%S'))))
 
 
 def _build_vars_dict(vars_file='', vars=None):
@@ -552,6 +577,9 @@ def iter(config, vars_file, var, tag, verbose):
 @click.option('--must-include', required=False, multiple=True,
               help='Files found must include this string. '
                    'This flag can be used multiple times.')
+@click.option('--backup', default=False, is_flag=True,
+              help='Backup any replaced file to a relative path under '
+              '{0} before replacing.'.format(REPEX_WORK_DIR))
 @click.option('--validate-before', default=False, is_flag=True,
               help='Validate that the `replace` was found in the file '
                    'before attempting to replace.')
@@ -564,7 +592,7 @@ def iter(config, vars_file, var, tag, verbose):
                    'for each file found. Defaults to `per_type`.')
 @click.option('-v', '--verbose', default=False, is_flag=True)
 def repl(ftype, path, basedir, match, replace, rwith, exclude, must_include,
-         validate_before, validator, validator_type,
+         backup, validate_before, validator, validator_type,
          verbose):
     """Handles replacements of files in a single path.
     """
@@ -585,7 +613,8 @@ def repl(ftype, path, basedir, match, replace, rwith, exclude, must_include,
         'with': rwith,
         'excluded': list(exclude),
         'must_include': list(must_include),
-        'validate_before': validate_before
+        'validate_before': validate_before,
+        'backup_before': backup
     }
     if validator:
         validator_path, validator_function = validator.split(':')

@@ -11,6 +11,7 @@ NOTE: Beginning with `repex 0.4.1`, file attributes are kept when replacing.
 
 NOTE: Beginning with `repex 0.4.3`, Windows is officially supported (and tested via appveyor).
 
+NOTE: Beggining with `repex 1.0.0`, Python 3 is officially supported.
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
@@ -51,13 +52,13 @@ Repex exposes a CLI which can be used to do one of two things:
 Just like sed:
 
 ```bash
-rpx repl --path /path/to/my/file --replace 3.3 --rwith 3.4
+rpx in-path /path/to/my/file --replace 3.3 --rwith 3.4
 ```
 
 Much, much more than sed:
 
 ```bash
-rpx repl -p 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before -v
+rpx in-path 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before -v
 ```
 
 This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
@@ -75,7 +76,7 @@ Note that you must either escape special chars or use single quotes where applic
 Passing a config file to the CLI is done as follows:
 
 ```bash
-rpx iter -c config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
+rpx from-config config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
 ```
 
 See below for how to use the config file.
@@ -136,7 +137,7 @@ and do the following
 ```python
 
 import os
-import repex.repex as rpx
+import repex
 
 CONFIG_YAML_FILE = "config.yaml"
 VERSION = os.environ['VERSION']  # '3.1.0-m3'
@@ -145,7 +146,7 @@ variables = {
     'version': VERSION,
 }
 
-rpx.iterate(CONFIG_YAML_FILE, variables)
+repex.iterate(config_file_path=CONFIG_YAML_FILE, variables=variables)
 
 ```
 
@@ -176,9 +177,8 @@ Don't forget the spaces!
 - `match` is the initial regex based string you'd like to match before replacing the expression. This provides a more robust way of replacing strings where you first match the exact area in which you'd like to replace the expression and only then match the expression you want to replace within it. It also provides a way to replace only specific instances of an expression, and not all.
 - `replace` - which regex would you like to replace?
 - `with` - what you replace with.
-- `validate_before` - a flag stating that you'd like to validate that the pattern you're looking for exists in the file and that all strings in `must_include` exists in the file as well.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
-- `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful while any other return value will fail the validation. The validating function receives the file's path as and a logger as parameters.
+- `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful while any other return value will fail the validation. The validating function receives the file's path as and a logger as arguments.
 
 In case you're providing a path to a file rather than a directory:
 
@@ -206,6 +206,8 @@ Variables can be declared in 4 ways:
 - Provided via the API.
 - Harcoded in the config under a top level `variables` section.
 - Set as Environment Variables.
+
+Note that variables can also be used within variables in the config.
 
 See the example above for a variable definition reference.
 

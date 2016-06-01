@@ -2,7 +2,7 @@ variables:
     replace: 3.1.0-m2
     version: 3.1.0-m4
     valstr: date
-    base_directory: repex/tests/resources
+    base_directory: tests/resources
 
 paths:
     -   path: "{{ .base_directory }}/single/mock_VERSION"
@@ -10,7 +10,6 @@ paths:
         replace: "{{ .replace }}"
         with: "{{ .version }}"
         to_file: "{{ .base_directory }}/single/VERSION.test"
-        validate_before: true
         must_include:
             - "{{ .valstr }}"
             - commit
@@ -18,4 +17,4 @@ paths:
         validator:
             type: per_file
             path: "{{ .base_directory }}/validator.py"
-            function: validate
+            function: succeed_validate

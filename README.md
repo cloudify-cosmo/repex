@@ -14,6 +14,8 @@ NOTE: Beginning with `repex 0.4.3`, Windows is officially supported (and tested 
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
+Why not Jinja you ask? Because sometimes you have existing files which are not templated in which you'd like to replace things.. and even if they're in your control, sometimes templates are just not viable if you need something working OOB.
+
 Why not use sed you ask? Because `repex` provides some layers of protection and an easy to use config yaml in which you easily add new files and folders to iterate through.
 
 The layers are:
@@ -22,7 +24,7 @@ The layers are:
 * Exclude files and folders so that you don't screw up.
 * Validate that the replacement went as expected by allowing to execute a validation function post-replacement.
 
-AND, you can use variables (sorta jinja2 style). How cool is that? See reference config below.
+AND, you can use variables (sorta Jinja2 style). How cool is that? See reference config below.
 
 
 ## Installation

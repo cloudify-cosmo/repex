@@ -148,7 +148,11 @@ variables = {
     'version': VERSION,
 }
 
-repex.iterate(config_file_path=CONFIG_YAML_FILE, variables=variables)
+repex.iterate(
+    config_file_path=CONFIG_YAML_FILE,
+    config=None,  # config is simply the dict form of the contents of `CONFIG_YAML_FILE`.
+    tags=['my_tag1', 'my_tag2']
+    variables=variables)
 
 ```
 

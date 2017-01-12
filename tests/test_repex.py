@@ -17,7 +17,7 @@ import os
 import shlex
 import tempfile
 
-import testtools
+import pytest
 import click.testing as clicktest
 
 import repex
@@ -48,71 +48,70 @@ def _invoke(command):
     return cfy.invoke(getattr(repex, func), params)
 
 
-class TestBase(testtools.TestCase):
+class TestBase:
     def test_invoke_main(self):
         result = _invoke('main')
-        self.assertIn(
-            'Usage: main [OPTIONS] COMMAND [ARGS]',
-            result.output)
+        assert 'Usage: main [OPTIONS] COMMAND [ARGS]' in result.output
 
+
+class TestIterate:
     def test_illegal_iterate_invocation(self):
         result = _invoke('from_config non_existing_config')
-        self.assertEqual(type(result.exception), SystemExit)
-        self.assertEqual(result.exit_code, 1)
-        self.assertIn('Could not open config file: ', result.output)
+        assert type(result.exception) == SystemExit
+        assert result.exit_code == 1
+        assert 'Could not open config file: ' in result.output
 
     def test_illegal_replace_invocation(self):
         result = _invoke('in_path non_existing_path -r x -w y')
-        self.assertEqual(type(result.exception), SystemExit)
-        self.assertEqual(result.exit_code, 1)
-        self.assertIn('File not found: ', result.output)
+        assert type(result.exception) == SystemExit
+        assert result.exit_code == 1
+        assert 'File not found: ' in result.output
 
     def test_mutually_exclusive_arguments(self):
         result = _invoke('in_path --ftype=non_existing_path --to-file=x')
-        self.assertEqual(type(result.exception), SystemExit)
-        self.assertIn('is mutually exclusive with', result.output)
+        assert type(result.exception) == SystemExit
+        assert 'is mutually exclusive with' in result.output
 
     def test_iterate_no_config_supplied(self):
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.iterate)
-        self.assertIn(repex.ERRORS['no_config_supplied'], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            repex.iterate()
+        assert repex.ERRORS['no_config_supplied'] in str(ex)
 
     def test_iterate_no_files(self):
-        ex = self.assertRaises(
-            TypeError,
-            repex.iterate,
-            config_file_path=EMPTY_CONFIG_FILE,
-            variables={})
-        self.assertIn(repex.ERRORS['invalid_yaml'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex.iterate(config_file_path=EMPTY_CONFIG_FILE, variables={})
+        assert repex.ERRORS['invalid_yaml'] in str(ex)
 
     def test_iterate_variables_not_dict(self):
-        ex = self.assertRaises(
-            TypeError,
-            repex.iterate,
-            config_file_path=MOCK_SINGLE_FILE,
-            variables='x')
-        self.assertIn(repex.ERRORS['variables_not_dict'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex.iterate(config_file_path=MOCK_SINGLE_FILE, variables='x')
+        assert repex.ERRORS['variables_not_dict'] in str(ex)
 
+
+class TestPathHandler:
+    @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
     def test_file_no_permissions_to_write_to_file(self):
-        if os.name == 'nt':
-            self.skipTest('Irrelevant on Windows')
-
-        pathobj = {
+        path_object = {
             'path': MOCK_TEST_FILE,
             'match': '3.1.0-m2',
             'replace': '3.1.0-m2',
             'with': '3.1.0-m3',
             'to_file': '/mock.test'
         }
-        try:
-            repex.handle_path(pathobj, verbose=True)
-            self.fail()
-        except IOError as ex:
-            self.assertIn('Permission denied', str(ex))
+        with pytest.raises(IOError) as ex:
+            repex.handle_path(path_object, verbose=True)
+        assert 'Permission denied' in str(ex)
+
+    def _test_repex_errors(self,
+                           path_object,
+                           error,
+                           error_type=repex.RepexError):
+        with pytest.raises(error_type) as ex:
+            repex.handle_path(path_object, verbose=True)
+        assert repex.ERRORS[error] in str(ex)
 
     def test_file_must_include_missing(self):
-        pathobj = {
+        path_object = {
             'path': MOCK_TEST_FILE,
             'match': '3.1.0-m2',
             'replace': '3.1.0',
@@ -122,15 +121,11 @@ class TestBase(testtools.TestCase):
                 'MISSING_INCLUSION'
             ]
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['prevalidation_failed'], str(ex))
+        expected_error = 'prevalidation_failed'
+        self._test_repex_errors(path_object, expected_error)
 
     def test_file_must_include_not_list(self):
-        pathobj = {
+        path_object = {
             'path': MOCK_TEST_FILE,
             'match': '3.1.0-m2',
             'replace': '3.1.0',
@@ -138,12 +133,9 @@ class TestBase(testtools.TestCase):
             'to_file': 'VERSION.test',
             'must_include': ''
         }
-        ex = self.assertRaises(
-            TypeError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['must_include_not_list'], str(ex))
+        expected_error = 'must_include_not_list'
+        self._test_repex_errors(
+            path_object, expected_error, error_type=TypeError)
 
     def _test_path_with_and_without_base_directory(self):
         p = {
@@ -162,14 +154,16 @@ class TestBase(testtools.TestCase):
         repex.handle_path(p, verbose=True)
         with open(p['path']) as f:
             content = f.read()
-        self.assertIn('3.1.0-m3', content)
+        assert '3.1.0-m2' not in content
+        assert '3.1.0-m3' in content
         repex.handle_path(t, verbose=True)
         with open(t['path']) as f:
             content = f.read()
-        self.assertIn('3.1.0-m2', content)
+        assert '3.1.0-m2' in content
+        assert '3.1.0-m3' not in content
 
     def test_to_file_requires_explicit_path(self):
-        pathobj = {
+        path_object = {
             'type': 'x',
             'path': TEST_RESOURCES_DIR_PATTERN,
             'base_directory': '',
@@ -178,29 +172,21 @@ class TestBase(testtools.TestCase):
             'with': '3.1.0-m3',
             'to_file': '/x.x',
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['to_file_requires_explicit_path'], str(ex))
+        expected_error = 'to_file_requires_explicit_path'
+        self._test_repex_errors(path_object, expected_error)
 
     def test_file_does_not_exist(self):
-        pathobj = {
+        path_object = {
             'path': 'MISSING_FILE',
             'match': '3.1.0-m2',
             'replace': '3.1.0',
             'with': '',
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['file_not_found'], str(ex))
+        expected_error = 'file_not_found'
+        self._test_repex_errors(path_object, expected_error)
 
     def test_type_with_path_config(self):
-        pathobj = {
+        path_object = {
             'type': 'x',
             'path': MOCK_TEST_FILE,
             'base_directory': '',
@@ -209,32 +195,23 @@ class TestBase(testtools.TestCase):
             'with': '3.1.0-m3',
             'to_file': '/x.x',
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['type_path_collision'], str(ex))
+        expected_error = 'type_path_collision'
+        self._test_repex_errors(path_object, expected_error)
 
     def test_single_file_not_found(self):
-        pathobj = {
+        path_object = {
             'path': 'x',
             'base_directory': '',
             'match': '3.1.0-m2',
             'replace': '3.1.0-m2',
             'with': '3.1.0-m3'
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.handle_path,
-            pathobj,
-            verbose=True)
-        self.assertIn(repex.ERRORS['file_not_found'], str(ex))
+        expected_error = 'file_not_found'
+        self._test_repex_errors(path_object, expected_error)
 
 
-class TestMultipleFiles(testtools.TestCase):
-    def setUp(self):
-        super(TestMultipleFiles, self).setUp()
+class TestMultipleFiles:
+    def setup_method(self, test_method):
         self.version_files = []
         for root, _, files in os.walk(MULTIPLE_DIR):
             self.version_files = \
@@ -249,10 +226,10 @@ class TestMultipleFiles(testtools.TestCase):
         def _test(replaced_value, initial_value):
             for version_file in self.version_files_without_excluded:
                 with open(version_file) as f:
-                    self.assertIn(replaced_value, f.read())
+                    assert replaced_value in f.read()
             for version_file in self.excluded_files:
                 with open(version_file) as f:
-                    self.assertIn(initial_value, f.read())
+                    assert initial_value in f.read()
 
         # TODO: This is some stupid thing related to formatting on windows
         # The direct invocation with click doesn't work on windows..
@@ -282,15 +259,15 @@ class TestMultipleFiles(testtools.TestCase):
 
         def _test(path, params, initial_value, final_value):
             result = _invoke(['in_path', path] + params)
-            self.assertEqual(result.exit_code, 1)
+            assert result.exit_code == 1
             # verify that all files were modified
             for version_file in self.version_files_without_excluded:
                 with open(version_file) as f:
-                    self.assertIn(initial_value, f.read())
+                    assert initial_value in f.read()
             # all other than the excluded ones
             for version_file in self.excluded_files:
                 with open(version_file) as f:
-                    self.assertIn(final_value, f.read())
+                    assert final_value in f.read()
 
         params = [
             '-t', 'mock_VERSION',
@@ -309,64 +286,53 @@ class TestMultipleFiles(testtools.TestCase):
         _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
 
 
-class TestConfig(testtools.TestCase):
+class TestConfig():
 
     def test_import_config_file(self):
         config = repex._get_config(config_file_path=MOCK_SINGLE_FILE)
-        self.assertEquals(type(config['paths']), list)
-        self.assertEquals(type(config['variables']), dict)
+        assert type(config['paths']) == list
+        assert type(config['variables']) == dict
 
     def test_config_file_not_found(self):
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex._get_config,
-            config_file_path='non_existing_path')
-        self.assertIn(repex.ERRORS['config_file_not_found'], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            repex._get_config(config_file_path='non_existing_path')
+        assert repex.ERRORS['config_file_not_found'] in str(ex)
 
     def test_import_bad_config_file_mapping(self):
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex._get_config,
-            config_file_path=os.path.join(
+        with pytest.raises(repex.RepexError) as ex:
+            repex._get_config(config_file_path=os.path.join(
                 TEST_RESOURCES_DIR, 'bad_mock_files.yaml'))
-        self.assertIn(repex.ERRORS['invalid_yaml'], str(ex))
+        assert repex.ERRORS['invalid_yaml'] in str(ex)
 
     def test_config_variables_not_dict(self):
         config = {
             'paths': [{'key': 'value'}],
             'variables': '{{ .x }}'
         }
-        ex = self.assertRaises(
-            TypeError,
-            repex._get_config,
-            config=config)
-        self.assertIn(repex.ERRORS['variables_not_dict'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex._get_config(config=config)
+        assert repex.ERRORS['variables_not_dict'] in str(ex)
 
     def test_config_paths_not_list(self):
         config = {
             'paths': {'key': 'value'},
         }
-        ex = self.assertRaises(
-            TypeError,
-            repex._get_config,
-            config=config)
-        self.assertIn(repex.ERRORS['paths_not_list'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex._get_config(config=config)
+        assert repex.ERRORS['paths_not_list'] in str(ex)
 
     def test_config_no_paths(self):
         config = {
             'paths': '',
         }
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex._get_config,
-            config=config)
-        self.assertIn(repex.ERRORS['no_paths_configured'], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            repex._get_config(config=config)
+        assert repex.ERRORS['no_paths_configured'] in str(ex)
 
 
-class TestValidator(testtools.TestCase):
+class TestValidator():
 
-    def setUp(self):
-        super(TestValidator, self).setUp()
+    def setup_method(self, test_method):
         self.single_file_config = repex._get_config(MOCK_SINGLE_FILE)
         self.validation_config = repex._get_config(MOCK_FILES_WITH_VALIDATOR)
         self.single_file_output_file = \
@@ -390,23 +356,21 @@ class TestValidator(testtools.TestCase):
             'fail_validate'
 
         try:
-            ex = self.assertRaises(
-                repex.RepexError,
-                repex.iterate,
-                config=self.validation_config,
-                variables=variables)
-            self.assertIn(repex.ERRORS['validation_failed'], str(ex))
+            with pytest.raises(repex.RepexError) as ex:
+                repex.iterate(
+                    config=self.validation_config,
+                    variables=variables)
+            assert repex.ERRORS['validation_failed'] in str(ex)
+
             with open(self.single_file_output_file) as f:
-                self.assertIn('3.1.0-m3', f.read())
+                assert '3.1.0-m3' in f.read()
         finally:
             os.remove(self.single_file_output_file)
 
     def _check_config(self, error):
-        ex = self.assertRaises(
-            repex.RepexError,
-            repex.Validator,
-            self.validator_config)
-        self.assertIn(repex.ERRORS[error], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            repex.Validator(self.validator_config)
+        assert repex.ERRORS[error] in str(ex)
 
     def test_invalid_validator_type(self):
         self.validator_config.update({'type': 'bad_type'})
@@ -431,17 +395,14 @@ class TestValidator(testtools.TestCase):
         self.validator_config['path'] = os.path.join(
             TEST_RESOURCES_DIR, 'validator.py')
         validator = repex.Validator(self.validator_config)
-        ex = self.assertRaises(
-            repex.RepexError,
-            validator.validate,
-            'some_file')
-        self.assertIn(repex.ERRORS['validator_function_not_found'], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            validator.validate('some_file')
+        assert repex.ERRORS['validator_function_not_found'] in str(ex)
 
 
-class TestSingleFile(testtools.TestCase):
+class TestSingleFile():
 
-    def setUp(self):
-        super(TestSingleFile, self).setUp()
+    def setup_method(self, test_method):
         self.single_file_config = repex._get_config(MOCK_SINGLE_FILE)
         self.single_file_output_file = \
             self.single_file_config['paths'][0]['to_file']
@@ -449,8 +410,7 @@ class TestSingleFile(testtools.TestCase):
         self.multi_file_excluded_dirs = \
             self.multi_file_config['paths'][0]['excluded']
 
-    def tearDown(self):
-        super(TestSingleFile, self).tearDown()
+    def teardown_method(self, test_method):
         if os.path.isfile(self.single_file_output_file):
             os.remove(self.single_file_output_file)
 
@@ -460,7 +420,7 @@ class TestSingleFile(testtools.TestCase):
             config_file_path=MOCK_SINGLE_FILE,
             variables=variables)
         with open(self.single_file_output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
+            assert '3.1.0-m3' in f.read()
 
     def test_iterate_user_tags_no_path_tags(self):
         tags = ['test_tag']
@@ -470,7 +430,7 @@ class TestSingleFile(testtools.TestCase):
             variables=variables,
             verbose=True,
             tags=tags)
-        self.assertFalse(os.path.isfile(self.single_file_output_file))
+        assert not os.path.isfile(self.single_file_output_file)
 
     def test_iterate_path_tags_no_user_tags(self):
         tags = ['test_tag']
@@ -480,7 +440,7 @@ class TestSingleFile(testtools.TestCase):
             config=self.single_file_config,
             variables=variables,
             verbose=True)
-        self.assertFalse(os.path.isfile(self.single_file_output_file))
+        assert not os.path.isfile(self.single_file_output_file)
 
     def test_iterate_path_tags_user_tags(self):
         tags = ['test_tag']
@@ -492,7 +452,7 @@ class TestSingleFile(testtools.TestCase):
             verbose=True,
             tags=tags)
         with open(self.single_file_output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
+            assert '3.1.0-m3' in f.read()
 
     def test_iterate_any_tag(self):
         tags = ['test_tag']
@@ -505,17 +465,16 @@ class TestSingleFile(testtools.TestCase):
             verbose=True,
             tags=any_tag)
         with open(self.single_file_output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
+            assert '3.1.0-m3' in f.read()
 
     def test_tags_not_list(self):
         tags = 'x'
-        ex = self.assertRaises(
-            TypeError,
-            repex.iterate,
-            config=self.single_file_config,
-            tags=tags,
-            verbose=True)
-        self.assertIn(repex.ERRORS['tags_not_list'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex.iterate(
+                config=self.single_file_config,
+                tags=tags,
+                verbose=True)
+        assert repex.ERRORS['tags_not_list'] in str(ex)
 
     def test_iterate_with_vars(self):
         variables = {'version': '3.1.0-m3'}
@@ -523,12 +482,12 @@ class TestSingleFile(testtools.TestCase):
             config_file_path=MOCK_SINGLE_FILE,
             variables=variables)
         with open(self.single_file_output_file) as f:
-            self.assertIn('3.1.0-m3', f.read())
+            assert '3.1.0-m3' in f.read()
 
     def test_iterate_with_vars_in_config(self):
         repex.iterate(config_file_path=MOCK_SINGLE_FILE)
         with open(self.single_file_output_file) as f:
-            self.assertIn('3.1.0-m4', f.read())
+            assert '3.1.0-m4' in f.read()
 
     def test_env_var_based_replacement(self):
         variables = {'version': '3.1.0-m3'}
@@ -538,7 +497,7 @@ class TestSingleFile(testtools.TestCase):
                 config_file_path=MOCK_SINGLE_FILE,
                 variables=variables)
             with open(self.single_file_output_file) as f:
-                self.assertIn('3.1.0-m9', f.read())
+                assert '3.1.0-m9' in f.read()
         finally:
             os.environ.pop('REPEX_VAR_VERSION')
 
@@ -552,12 +511,9 @@ class TestSingleFile(testtools.TestCase):
 
         variable_expander = repex.VariablesHandler()
         variable_expander._check_if_expanded = false_return
-        ex = self.assertRaises(
-            repex.RepexError,
-            variable_expander.expand,
-            variables,
-            attributes)
-        self.assertIn(repex.ERRORS['string_failed_to_expand'], str(ex))
+        with pytest.raises(repex.RepexError) as ex:
+            variable_expander.expand(variables, attributes)
+        assert repex.ERRORS['string_failed_to_expand'] in str(ex)
 
     def test_variable_not_expanded_again(self):
         var_string = '{{ .some_var }}'
@@ -566,13 +522,12 @@ class TestSingleFile(testtools.TestCase):
         variable_expander = repex.VariablesHandler()
         result = variable_expander._check_if_expanded(
             var_string, expanded_variable)
-        self.assertFalse(result)
+        assert not result
 
 
-class TestGetAllFiles(testtools.TestCase):
+class TestGetAllFiles():
 
-    def setUp(self):
-        super(TestGetAllFiles, self).setUp()
+    def setup_method(self, test_method):
         self.multi_file_config = repex._get_config(MOCK_MULTIPLE_FILES)
         self.multi_file_excluded_dirs = \
             self.multi_file_config['paths'][0]['excluded']
@@ -594,7 +549,7 @@ class TestGetAllFiles(testtools.TestCase):
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR)
         for version_file in self.version_files:
-            self.assertIn(version_file, files)
+            assert version_file in files
 
     def test_get_all_files_with_dir_exclusion(self):
         files = repex.get_all_files(
@@ -603,19 +558,18 @@ class TestGetAllFiles(testtools.TestCase):
             base_dir=TEST_RESOURCES_DIR,
             excluded_paths=self.multi_file_excluded_dirs)
         for version_file in self.version_files_without_excluded:
-            self.assertIn(version_file, files)
+            assert version_file in files
         for f in self.excluded_files:
-            self.assertNotIn(os.path.join(self.base_dir, f), files)
+            assert os.path.join(self.base_dir, f) not in files
 
     def test_get_all_files_excluded_list_is_str(self):
-        ex = self.assertRaises(
-            TypeError,
-            repex.get_all_files,
-            filename_regex=TEST_FILE_NAME,
-            path=TEST_RESOURCES_DIR_PATTERN,
-            base_dir=TEST_RESOURCES_DIR,
-            excluded_paths='INVALID_EXCLUDED_LIST')
-        self.assertIn(repex.ERRORS['excluded_paths_not_list'], str(ex))
+        with pytest.raises(TypeError) as ex:
+            repex.get_all_files(
+                filename_regex=TEST_FILE_NAME,
+                path=TEST_RESOURCES_DIR_PATTERN,
+                base_dir=TEST_RESOURCES_DIR,
+                excluded_paths='INVALID_EXCLUDED_LIST')
+        assert repex.ERRORS['excluded_paths_not_list'] in str(ex)
 
     def test_get_all_regex_files(self):
         mock_yaml_files = [f for f in os.listdir(TEST_RESOURCES_DIR)
@@ -624,9 +578,9 @@ class TestGetAllFiles(testtools.TestCase):
             filename_regex='mock.*\.yaml',
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR)
-        self.assertEquals(len(mock_yaml_files), len(files))
+        assert len(mock_yaml_files) == len(files)
         for f in mock_yaml_files:
-            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
+            assert os.path.join(TEST_RESOURCES_DIR, f) in files
 
     def test_get_all_regex_files_with_exclusion(self):
         mock_yaml_files = [os.path.join('single', 'mock_VERSION')]
@@ -637,6 +591,6 @@ class TestGetAllFiles(testtools.TestCase):
             excluded_paths=['multiple'],
             verbose=True,
             excluded_filename_regex='.*yaml',)
-        self.assertEquals(len(mock_yaml_files), len(files))
+        assert len(mock_yaml_files) == len(files)
         for f in mock_yaml_files:
-            self.assertIn(os.path.join(TEST_RESOURCES_DIR, f), files)
+            assert os.path.join(TEST_RESOURCES_DIR, f) in files

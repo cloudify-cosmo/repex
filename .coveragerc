@@ -1,0 +1,10 @@
+[run]
+branch = True
+source =
+    repex.py
+omit =
+    .tox/*/lib/python*/site-packages/repex.py
+
+[paths]
+source =
+    repex.py

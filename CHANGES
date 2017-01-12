@@ -1,0 +1,40 @@
+**1.0.0 (2016.06.01)**
+
+* Change CLI command names `repl` and `iter` to `in` and `from` respectively
+* `path` and `config-file` in `repl` and `iter` have been changed to positional arguments respectively
+* Reorganize the code, remove unnecessary logger configuration and make repex a single module
+* Introduced deep error handling
+* `handle_file` is not longer exposed as a function in the API
+* `_get_config` is not the function which retrieves the configuration so `import_config` is no longer exposed in the API
+* Standardize error messages
+* sys.exit is now only used in the CLI and instead exceptions are raised for each error so that tracebacks are exposed to anyone using the Python API directly
+* Some breaking API changes were introduced, in, for instance, the `iterate` and `get_all_files` functions.
+* 99% test coverage!
+* Fixed a serious bug where if multiple instances of the same expression existed in a file, it would replace each expression multiple times resulting in a potentially bad replacement.
+* Logging is now less verbose and more concentrated about changes only, not peripherals.
+
+**0.4.3 (2016.04.29)**
+
+* Fixed whatever it was that prevented repex from working properly on Windows.
+Added appveyor testing env.
+
+**0.4.1 (2016.04.17)**
+
+Preserve file attributes when replacing.
+No longer print mega-verbose exclusion of all subdirs/files in chosen excluded path.
+
+**0.4.0 (2015-12-04)**
+
+Added a sed like CLI command rpx repl. You can now handle a specific path (analogous to a path object in the config.yaml) directly from the CLI without the need of a config file. This brings the power of repex (matching context, replacement, multiple regex based paths, validation, etc..) to the user with less hassle.
+The previous CLI command rpx execute is now called rpx iter.
+Variables will now be expanded only if variables are provided.
+Now printing out validator file path when supplied.
+
+**0.3.2 (2015-11-23)**
+
+* Code cleanup and optimizaiton
+* Validator dict config is now validated per path. Previously, it wasn't validated at all.
+* Fixed a bug where the validator will fail even if a True value is returned
+* Logger is now overridable when import repex. File logger and more complex logging format is declared only when executed via the CLI.
+* Added multiple --var 'key'='value' flag to pass variables from the CLI.
+* You can now pass variables to dicts (e.g. validator) and lists (e.g. must_include).

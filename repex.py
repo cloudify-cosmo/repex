@@ -446,7 +446,10 @@ def handle_path(pathobj, variables=None, verbose=False):
             if validate and validator_type == 'per_file':
                 verify_file_validation(file_to_handle)
 
-        if file_to_handle and validate and validator_type == 'per_type':
+        # Need to check that `files` isn't an empty list or `file_to_handle`
+        # will be undefined.
+        if files and file_to_handle and validate and \
+                validator_type == 'per_type':
             verify_file_validation(file_to_handle)
 
 

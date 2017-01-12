@@ -1,0 +1,11 @@
+include *.md
+include *.py
+include *.txt
+include LICENSE
+include CHANGES
+include Makefile
+
+recursive-include tests *.py
+recursive-include tests *.txt
+
+global-exclude *.py[co]

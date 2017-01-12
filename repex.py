@@ -607,7 +607,8 @@ class MutuallyExclusiveOption(click.Option):
 
 @click.group()
 def main():
-    pass
+    """
+    """
 
 
 @main.command(name='from-config')

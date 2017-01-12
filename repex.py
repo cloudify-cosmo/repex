@@ -80,7 +80,7 @@ def _import_config_file(config_file_path):
     """Return a configuration object
     """
     try:
-        logger.info('Importing config {0}...'.format(config_file_path))
+        logger.info('Importing config %s...', config_file_path)
         with open(config_file_path, 'r') as config:
             return yaml.safe_load(config.read())
     except IOError as ex:
@@ -161,13 +161,12 @@ def get_all_files(filename_regex,
 
     excluded_paths = _set_excluded_paths(base_dir, excluded_paths)
     if excluded_paths:
-        logger.info('Excluded paths: {0}'.format(excluded_paths))
+        logger.info('Excluded paths: %s', excluded_paths)
 
-    logger.info('Looking for {0} under {1} in {2}...'.format(
-        filename_regex, path, base_dir))
+    logger.info('Looking for %s under %s in %s...',
+                filename_regex, path, base_dir)
     if excluded_filename_regex:
-        logger.info('Excluding all files named: {0}'.format(
-            excluded_filename_regex))
+        logger.info('Excluding all files named: %s', excluded_filename_regex)
 
     path = replace_backslashes(path)
     path_expression = re.compile(path)
@@ -188,8 +187,8 @@ def get_all_files(filename_regex,
                         excluded_paths)
                 if is_file and matched and not excluded_filename \
                         and not excluded_path:
-                    logger.debug('{0} is a match. Appending to '
-                                 'list...'.format(filepath))
+                    logger.debug('%s is a match. Appending to list...',
+                                 filepath)
                     target_files.append(filepath)
     return target_files
 
@@ -206,13 +205,14 @@ class Validator(object):
         if not hasattr(validator, self.validation_function):
             raise RepexError(ERRORS['validator_function_not_found'])
 
-        logger.info('Validating {0} using {1}:{2}...'.format(
-            file_to_validate, self.validator_path, self.validation_function))
+        logger.info('Validating %s using %s:%s...',
+                    file_to_validate,
+                    self.validator_path,
+                    self.validation_function)
         validated = getattr(validator, self.validation_function)(
             file_to_validate, logger)
         if validated:
-            logger.info('Validation Succeeded for: {0}'.format(
-                file_to_validate))
+            logger.info('Validation Succeeded for: %s', file_to_validate)
             return True
         else:
             return False
@@ -230,12 +230,12 @@ class Validator(object):
             raise RepexError(ERRORS['validator_function_not_supplied'])
 
     def _import_validator(self):
-        logger.debug('Importing validator: {0}'.format(self.validator_path))
+        logger.debug('Importing validator: %s', self.validator_path)
         return imp.load_source(
             os.path.basename(self.validator_path), self.validator_path)
 
 
-class VariablesHandler():
+class VariablesHandler(object):
     """Handle variable expansion and replacement
     """
 
@@ -301,8 +301,8 @@ class VariablesHandler():
         var_string = '{{ ' + '.{0}'.format(variable) + ' }}'
 
         if re.search(var_string, in_string):
-            logger.debug('Expanding var {0} to {1} in {2}'.format(
-                variable, value, in_string))
+            logger.debug('Expanding var %s to %s in %s',
+                         variable, value, in_string)
             expanded_variable = re.sub(var_string, str(value), in_string)
             if not self._check_if_expanded(var_string, expanded_variable):
                 raise RepexError(ERRORS['string_failed_to_expand'])
@@ -311,8 +311,7 @@ class VariablesHandler():
 
     @staticmethod
     def _check_if_expanded(var_string, expanded_variable):
-        logger.debug('Verifying that string {0} expanded'.format(
-            expanded_variable))
+        logger.debug('Verifying that string %s expanded', expanded_variable)
         if re.search(var_string, expanded_variable):
             return False
         return True
@@ -369,19 +368,18 @@ def iterate(config_file_path=None,
     vars_from_config = config['variables']
     repex_vars = _set_variables(vars_from_config, variables or {})
     repex_tags = tags or []
-    logger.debug('Chosen tags: {0}'.format(repex_tags))
+    logger.debug('Chosen tags: %s', repex_tags)
 
     for path in repex_paths:
         path_tags = path.get('tags', [])
-        logger.debug('Checking chosen tags against path tags: {0}'.format(
-            path_tags))
+        logger.debug('Checking chosen tags against path tags: %s', path_tags)
         tags_match = _check_for_matching_tags(repex_tags, path_tags)
         if tags_match:
-            logger.debug('Matching tag(s) found for path: {0}...'.format(path))
+            logger.debug('Matching tag(s) found for path: %s...', path)
             handle_path(path, repex_vars, verbose)
         else:
-            logger.debug('No matching tags found for path: '
-                         '{0}. Skipping...'.format(path))
+            logger.debug('No matching tags found for path: %s. Skipping...',
+                         path)
 
 
 def handle_path(pathobj, variables=None, verbose=False):
@@ -398,8 +396,8 @@ def handle_path(pathobj, variables=None, verbose=False):
         variable_expander = VariablesHandler(verbose)
         pathobj = variable_expander.expand(variables, pathobj)
     pathobj['base_directory'] = pathobj.get('base_directory', os.getcwd())
-    logger.debug('Path to process: {0}'.format(
-        os.path.join(pathobj['base_directory'], pathobj['path'])))
+    logger.debug('Path to process: %s', os.path.join(
+        pathobj['base_directory'], pathobj['path']))
     path_to_handle = os.path.join(pathobj['base_directory'], pathobj['path'])
 
     validate = 'validator' in pathobj
@@ -488,9 +486,9 @@ class Repex(object):
         output_file_path = self._init_file(file_to_handle)
         matches = self.find_matches(content, file_to_handle)
         logger.info(
-            'Replacing all strings that match {0} and are contained in '
-            '{1} with {2}...'.format(
-                self.pattern_to_replace, self.match_regex, self.replace_with))
+            'Replacing all strings that match %s and are contained in '
+            '%s with %s...', self.pattern_to_replace, self.match_regex,
+            self.replace_with)
         for match in matches:
             if self.is_in_string(match):
                 replacements_found = True
@@ -505,13 +503,12 @@ class Repex(object):
     def validate_before(self, content, file_to_handle):
         """Verify that all required strings are in the file
         """
-        logger.debug('Looking for required strings: {0}'.format(
-            self.must_include))
+        logger.debug('Looking for required strings: %s', self.must_include)
         included = True
         for string in self.must_include:
             if not re.search(r'{0}'.format(string), content):
-                logger.error('Required string `{0}` not found in {1}'.format(
-                    string, file_to_handle))
+                logger.error('Required string `%s` not found in %s',
+                             string, file_to_handle)
                 included = False
         if not included:
             logger.debug('Required strings not found')
@@ -529,8 +526,7 @@ class Repex(object):
         matches = [group['matchgroup'] for group in groups
                    if group.get('matchgroup')]
 
-        logger.info('Found {0} matches in {1}'.format(
-            len(matches), file_to_handle))
+        logger.info('Found %s matches in %s', len(matches), file_to_handle)
         # We only need the unique strings found as we'll be replacing each
         # of them. No need to replace the ones already replaced.
         return list(set(matches))
@@ -543,8 +539,7 @@ class Repex(object):
         from a file with a specific value.
         """
         new_string = self.replace_expression.sub(self.replace_with, match)
-        logger.info('Replacing: [ {0} ] --> [ {1} ]'.format(
-            match, new_string))
+        logger.info('Replacing: [ %s ] --> [ %s ]', match, new_string)
         new_content = self.match_expression.sub(new_string, content)
         return new_content
 
@@ -558,9 +553,9 @@ class Repex(object):
     def _write_final_content(self, content, output_file_path):
         temp_file_path = output_file_path + '.tmp'
         if self.to_file:
-            logger.info('Writing output to {0}...'.format(output_file_path))
+            logger.info('Writing output to %s...', output_file_path)
         else:
-            logger.debug('Writing output to {0}...'.format(output_file_path))
+            logger.debug('Writing output to %s...', output_file_path)
         with open(temp_file_path, "w") as temp_file:
             temp_file.write(content)
         try:
@@ -590,10 +585,10 @@ class MutuallyExclusiveOption(click.Option):
         self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
         self.mutuality_string = ', '.join(self.mutually_exclusive)
         if self.mutually_exclusive:
-            help = kwargs.get('help', '')
+            help_text = kwargs.get('help', '')
             kwargs['help'] = (
                 '{0}. This argument is mutually exclusive with '
-                'arguments: [{1}]'.format(help, self.mutuality_string))
+                'arguments: [{1}]'.format(help_text, self.mutuality_string))
         super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):

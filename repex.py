@@ -60,8 +60,7 @@ REPEX_VAR_PREFIX = 'REPEX_VAR_'
 
 def setup_logger():
     handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
     handler.setFormatter(formatter)
     logger = logging.getLogger('repex')
     logger.addHandler(handler)
@@ -78,7 +77,7 @@ def _set_global_verbosity_level(is_verbose_output=False):
 
 
 def _import_config_file(config_file_path):
-    """Returns a configuration object
+    """Return a configuration object
     """
     try:
         logger.info('Importing config {0}...'.format(config_file_path))
@@ -237,14 +236,14 @@ class Validator(object):
 
 
 class VariablesHandler():
-    """Handles variable expansion and replacement
+    """Handle variable expansion and replacement
     """
 
     def __init__(self, verbose=False):
         _set_global_verbosity_level(verbose)
 
     def expand(self, repex_vars, attributes):
-        r"""Receives a dict of variables and a dict of attributes
+        r"""Receive a dict of variables and a dict of attributes
         and iterates through them to expand a variable in an attribute
 
         attributes:
@@ -293,13 +292,12 @@ class VariablesHandler():
         return attributes
 
     def _expand_var(self, variable, value, in_string):
-        """Expands variable to its corresponding value in_string
+        """Expand variable to its corresponding value in_string
 
         :param string variable: variable name
         :param value: value to replace with
         :param string in_string: the string to replace in
         """
-
         var_string = '{{ ' + '.{0}'.format(variable) + ' }}'
 
         if re.search(var_string, in_string):
@@ -331,7 +329,7 @@ def _set_variables(vars_from_config, variables):
 
 
 def _check_for_matching_tags(repex_tags, path_tags):
-    """Checks for matching tags between what the user provided
+    """Check for matching tags between what the user provided
     and the tags set in the config.
 
     If `any` is chosen, match.
@@ -350,7 +348,7 @@ def iterate(config_file_path=None,
             variables=None,
             verbose=False,
             tags=None):
-    """Iterates over all paths in `config_file_path`
+    """Iterate over all paths in `config_file_path`
 
     :param string config_file_path: a path to a repex config file
     :param dict config: a dictionary representing a repex config
@@ -387,7 +385,7 @@ def iterate(config_file_path=None,
 
 
 def handle_path(pathobj, variables=None, verbose=False):
-    """Iterates over all chosen files in a path
+    """Iterate over all chosen files in a path
 
     :param dict pathobj: a dict of a specific path in the config
     :param dict variables: a dict of variables (can be None)
@@ -500,7 +498,7 @@ class Repex(object):
             self._write_final_content(content, output_file_path)
 
     def validate_before(self, content, file_to_handle):
-        """Verifies that all required strings are in the file
+        """Verify that all required strings are in the file
         """
         logger.debug('Looking for required strings: {0}'.format(
             self.must_include))
@@ -517,7 +515,7 @@ class Repex(object):
         return True
 
     def find_matches(self, content, file_to_handle):
-        """Finds all matches of an expression in a file
+        """Find all matches of an expression in a file
         """
         # look for all match groups in the content
         groups = [match.groupdict() for match in
@@ -536,7 +534,7 @@ class Repex(object):
         return True if self.replace_expression.search(match) else False
 
     def replace(self, match, content):
-        """Replaces all occurences of the regex in all matches
+        """Replace all occurences of the regex in all matches
         from a file with a specific value.
         """
         new_string = self.replace_expression.sub(self.replace_with, match)

@@ -305,6 +305,8 @@ class TestMultipleFiles(testtools.TestCase):
         _test('multiple', params, '3.1.0-m3', '3.1.0-m2')
         params[11] = '3.1.0-m2'
         _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
+        params[9] = 'NON_EXISTING_STRING'
+        _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
 
 
 class TestConfig(testtools.TestCase):

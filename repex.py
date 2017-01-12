@@ -498,6 +498,8 @@ class Repex(object):
             logger.info('Found nothing to replace within matches')
         if matches:
             self._write_final_content(content, output_file_path)
+        else:
+            os.remove(output_file_path + '.tmp')
 
     def validate_before(self, content, file_to_handle):
         """Verifies that all required strings are in the file

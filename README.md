@@ -1,11 +1,15 @@
 repex (REPlace (regular) EXpression)
 ====================================
 
-[![Circle CI](https://circleci.com/gh/cloudify-cosmo/repex/tree/master.svg?style=shield)](https://circleci.com/gh/cloudify-cosmo/repex/tree/master)
 [![Build Status](https://travis-ci.org/cloudify-cosmo/repex.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/repex)
 [![Build status](https://ci.appveyor.com/api/projects/status/kn6yqwqhsdn54ich/branch/master?svg=true)](https://ci.appveyor.com/project/Cloudify/repex/branch/master)
-[![PyPI](http://img.shields.io/pypi/dm/repex.svg)](http://img.shields.io/pypi/dm/repex.svg)
-[![PypI](http://img.shields.io/pypi/v/repex.svg)](http://img.shields.io/pypi/v/repex.svg)
+[![PyPI version](http://img.shields.io/pypi/v/repex.svg)](https://pypi.python.org/pypi/repex)
+[![Supported Python Versions](https://img.shields.io/pypi/pyversions/repex.svg)](https://img.shields.io/pypi/pyversions/repex.svg)
+[![Requirements Status](https://requires.io/github/cloudify-cosmo/repex/requirements.svg?branch=master)](https://requires.io/github/cloudify-cosmo/repex/requirements/?branch=master)
+[![Code Coverage](https://codecov.io/github/cloudify-cosmo/repex/coverage.svg?branch=master)](https://codecov.io/github/cloudify-cosmo/repex?branch=master)
+[![Code Quality](https://landscape.io/github/cloudify-cosmo/repex/master/landscape.svg?style=flat)](https://landscape.io/github/cloudify-cosmo/repex)
+[![Is Wheel](https://img.shields.io/pypi/wheel/repex.svg?style=flat)](https://pypi.python.org/pypi/repex)
+
 
 NOTE: Beginning with `repex 0.4.1`, file attributes are kept when replacing.
 

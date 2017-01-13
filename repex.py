@@ -600,166 +600,150 @@ class MutuallyExclusiveOption(click.Option):
             ctx, opts, args)
 
 
-@click.group()
-def main():
-    """
-    """
+CLICK_CONTEXT_SETTINGS = dict(
+    help_option_names=['-h', '--help'],
+    token_normalize_func=lambda param: param.lower())
 
 
-@main.command(name='from-config')
-@click.argument('config-file-path', required=True)
-@click.option('--vars-file',
-              required=False,
-              help='Path to YAML based vars file')
-@click.option('--var',
-              required=False,
-              multiple=True,
-              help="A variable to pass to Repex. Can be used multiple times. "
-                   "Format should be `'key'='value'`")
-@click.option('-t',
-              '--tag',
-              required=False,
-              multiple=True,
-              help='A tag to match with a set of tags in the config. '
-                   'Can be used multiple times')
-@click.option('-v',
-              '--verbose',
-              default=False,
-              is_flag=True,
-              help='Show verbose output')
-def from_config(config_file_path,
-                vars_file,
-                var,
-                tag,
-                verbose):
-    """Replace based on configuration `from` a file
-
-    `CONFIG_FILE_PATH` is a path to a repex YAML config file.
-    """
-    _set_global_verbosity_level(verbose)
-
-    repex_vars = _build_vars_dict(vars_file, var)
-    try:
-        iterate(
-            config_file_path=config_file_path,
-            variables=repex_vars,
-            verbose=verbose,
-            tags=list(tag))
-    except (RepexError, IOError) as ex:
-        sys.exit(str(ex))
-
-
-@main.command(name='in-path')
-@click.argument('path-to-handle', required=True)
+@click.command(context_settings=CLICK_CONTEXT_SETTINGS)
+@click.argument('REGEX_PATH', required=False)
 @click.option('-r',
               '--replace',
-              required=True,
-              help='A regex string to replace.')
+              help='A regex string to replace [non-config only]')
 @click.option('-w',
               '--replace-with',
-              required=True,
-              help='Non-regex string to replace with.')
+              help='Non-regex string to replace with [non-config only]')
 @click.option('-m',
               '--match',
-              required=False,
-              help='Context match for `replace`. '
+              help='Context regex match for `replace`. '
                    'If this is ommited, the context will be the '
-                   'entire content of the file')
+                   'entire content of the file [non-config only]')
 @click.option('-t',
               '--ftype',
               default=None,
-              required=False,
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['to_file'],
               help='A regex file name to look for. '
                    'Defaults to `None`, which means that '
-                   '`PATH_TO_HANDLE` must be a path to a single file')
+                   '`PATH_TO_HANDLE` must be a path to a single file '
+                   '[non-config only]')
 @click.option('-b',
               '--basedir',
               default=os.getcwd(),
-              required=False,
               help='Where to start looking for `path` from. '
-                   'Defaults to the cwd')
+                   'Defaults to the cwd [non-config only]')
 @click.option('-x',
               '--exclude-paths',
-              required=False,
               multiple=True,
               help='Paths to exclude when searching for files to handle. '
-                   'This can be used multiple times')
+                   'This can be used multiple times [non-config only]')
 @click.option('-i',
               '--must-include',
-              required=False,
               multiple=True,
               help='Files found must include this string. '
-                   'This can be used multiple times')
+                   'This can be used multiple times [non-config only]')
 @click.option('--validator',
-              required=False,
-              help='Validator file:function (e.g. validator.py:valid_func')
+              help='Validator file:function (e.g. validator.py:valid_func '
+                   '[non-config only]')
 @click.option('--validator-type',
-              required=False,
               default='per_type',
               type=click.Choice(['per_file', 'per_type']),
               help='Type of validation to perform. `per_type` will validate '
                    'the last file found while `per_file` will run validation '
-                   'for each file found. Defaults to `per_type`')
+                   'for each file found. Defaults to `per_type` '
+                   '[non-config only]')
 @click.option('--to-file',
-              required=False,
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['ftype'],
-              help='File path to write the output to')
+              help='File path to write the output to [non-config only]')
+@click.option('-c',
+              '--config',
+              help='Path to a repex config file [config only]')
+@click.option('--vars-file',
+              help='Path to YAML based vars file [config only]')
+@click.option('--var',
+              multiple=True,
+              help="A variable to pass to Repex. Can be used multiple times. "
+                   "Format should be `'key'='value'` [config only]")
+@click.option('--tag',
+              multiple=True,
+              help='A tag to match with a set of tags in the config. '
+                   'Can be used multiple times [config only]')
 @click.option('-v',
               '--verbose',
               default=False,
               is_flag=True,
               help='Show verbose output')
-def in_path(ftype,
-            path_to_handle,
-            basedir,
-            match,
-            replace,
-            replace_with,
-            exclude_paths,
-            must_include,
-            validator,
-            validator_type,
-            to_file,
-            verbose):
-    """Replace strings `in` files in a path.
+def main(ftype,
+         regex_path,
+         basedir,
+         match,
+         replace,
+         replace_with,
+         exclude_paths,
+         must_include,
+         validator,
+         validator_type,
+         to_file,
+         config,
+         vars_file,
+         var,
+         tag,
+         verbose):
+    """Replace strings in one or multiple files.
 
-    `PATH_TO_HANDLE` can be: a regex of paths under `basedir`,
-     a path to a single directory under `basedir`,
-     or a path to a single file.
+    You must either provide `REGEX_PATH` or use the `-c` flag
+    to provide a valid repex configuration.
 
-     It's important to note that if the `PATH_TO_HANDLE` is a path to a
-     directory, the `-t,--ftype` flag must be provided.
+    `REGEX_PATH` can be: a regex of paths under `basedir`,
+    a path to a single directory under `basedir`,
+    or a path to a single file.
+
+    It's important to note that if the `PATH_TO_HANDLE` is a path to a
+    directory, the `-t,--ftype` flag must be provided.
     """
     _set_global_verbosity_level(verbose)
 
-    regex_to_replace = r'{0}'.format(replace)
-    regex_path = r'{0}'.format(path_to_handle)
-    # TODO: change ftype argument name
-    regex_filename = r'{0}'.format(ftype) if ftype else None
-    regex_to_match = r'{0}'.format(match) if match else replace
+    if not config and not regex_path:
+        click.echo('Must either provide a path or a viable repex config file.')
+        sys.exit(1)
 
-    pathobj = {
-        'type': regex_filename,
-        'path': regex_path,
-        'to_file': to_file,
-        'base_directory': basedir,
-        'match': regex_to_match,
-        'replace': regex_to_replace,
-        'with': replace_with,
-        'excluded': list(exclude_paths),
-        'must_include': list(must_include)
-    }
-    if validator:
-        validator_path, validator_function = validator.split(':')
-        pathobj['validator'] = {
-            'type': validator_type,
-            'path': validator_path,
-            'function': validator_function
+    if config:
+        repex_vars = _build_vars_dict(vars_file, var)
+        try:
+            iterate(
+                config_file_path=config,
+                variables=repex_vars,
+                verbose=verbose,
+                tags=list(tag))
+        except (RepexError, IOError) as ex:
+            sys.exit(str(ex))
+    else:
+        regex_to_replace = r'{0}'.format(replace)
+        regex_path = r'{0}'.format(regex_path)
+        # TODO: change ftype argument name
+        regex_filename = r'{0}'.format(ftype) if ftype else None
+        regex_to_match = r'{0}'.format(match) if match else replace
+
+        pathobj = {
+            'type': regex_filename,
+            'path': regex_path,
+            'to_file': to_file,
+            'base_directory': basedir,
+            'match': regex_to_match,
+            'replace': regex_to_replace,
+            'with': replace_with,
+            'excluded': list(exclude_paths),
+            'must_include': list(must_include)
         }
-    try:
-        handle_path(pathobj, verbose=verbose)
-    except (RepexError, IOError) as ex:
-        sys.exit(str(ex))
+        if validator:
+            validator_path, validator_function = validator.split(':')
+            pathobj['validator'] = {
+                'type': validator_type,
+                'path': validator_path,
+                'function': validator_function
+            }
+        try:
+            handle_path(pathobj, verbose=verbose)
+        except (RepexError, IOError) as ex:
+            sys.exit(str(ex))

@@ -22,6 +22,7 @@ import logging
 
 import yaml
 import click
+import jsonschema
 
 
 ERRORS = {
@@ -81,8 +82,8 @@ def _import_config_file(config_file_path):
     """
     try:
         logger.info('Importing config %s...', config_file_path)
-        with open(config_file_path, 'r') as config:
-            return yaml.safe_load(config.read())
+        with open(config_file_path) as config_file:
+            return yaml.safe_load(config_file.read())
     except IOError as ex:
         raise RepexError('{0}: {1} ({2})'.format(
             ERRORS['config_file_not_found'], config_file_path, ex))
@@ -96,29 +97,14 @@ def _get_config(config_file_path=None, config=None):
 
     if config_file_path:
         config = _import_config_file(config_file_path)
-    if not isinstance(config, dict):
-        raise TypeError(ERRORS['invalid_yaml'])
 
-    paths = config.get('paths')
-    if not paths:
-        raise RepexError(ERRORS['no_paths_configured'])
-    if not isinstance(paths, list):
-        raise TypeError(ERRORS['paths_not_list'])
-
-    variables = config.get('variables')
-    if variables:
-        if not isinstance(variables, dict):
-            raise TypeError(ERRORS['variables_not_dict'])
-    else:
-        config['variables'] = {}
-
+    config = config or {}
+    config['variables'] = config.get('variables', {})
     return config
 
 
 def _set_excluded_paths(base_dir, excluded_paths):
     excluded_paths = excluded_paths or []
-    if not isinstance(excluded_paths, list):
-        raise TypeError(ERRORS['excluded_paths_not_list'])
     excluded_paths = [os.path.join(base_dir, excluded_path).rstrip('/')
                       for excluded_path in excluded_paths]
     return excluded_paths
@@ -218,16 +204,8 @@ class Validator(object):
             return False
 
     def _validate_config(self):
-        validation_types = ('per_file', 'per_type')
-        if self.validation_type not in validation_types:
-            raise RepexError('{0}: {1}'.format(
-                ERRORS['invalid_validator_type'], self.validation_type))
-        if not self.validator_path:
-            raise RepexError(ERRORS['validator_path_not_supplied'])
         if not os.path.isfile(self.validator_path):
             raise RepexError(ERRORS['validator_path_not_found'])
-        if not self.validation_function:
-            raise RepexError(ERRORS['validator_function_not_supplied'])
 
     def _import_validator(self):
         logger.debug('Importing validator: %s', self.validator_path)
@@ -346,7 +324,8 @@ def iterate(config_file_path=None,
             config=None,
             variables=None,
             verbose=False,
-            tags=None):
+            tags=None,
+            validate=True):
     """Iterate over all paths in `config_file_path`
 
     :param string config_file_path: a path to a repex config file
@@ -364,6 +343,12 @@ def iterate(config_file_path=None,
         raise TypeError(ERRORS['tags_not_list'])
 
     config = _get_config(config_file_path, config)
+    if validate:
+        try:
+            _validate_config_schema(config)
+        except jsonschema.exceptions.ValidationError as ex:
+            raise RepexError(ex)
+
     repex_paths = config['paths']
     vars_from_config = config['variables']
     repex_vars = _set_variables(vars_from_config, variables or {})
@@ -471,9 +456,6 @@ class Repex(object):
         self.to_file = to_file
         self.must_include = must_include or []
 
-        if not isinstance(must_include, list):
-            raise TypeError(ERRORS['must_include_not_list'])
-
     def handle_file(self, file_to_handle):
         with open(file_to_handle) as f:
             content = f.read()
@@ -563,6 +545,54 @@ class Repex(object):
         finally:
             if os.path.isfile(temp_file_path):
                 os.remove(temp_file_path)
+
+
+def _validate_config_schema(config):
+    schema = {
+        'type': 'object',
+        'properties': {
+            'variables': {'type': 'object'},
+            'paths': {
+                'type': 'array',
+                'items': [
+                    {
+                        'type': 'object',
+                        'properties': {
+                            'type': {'type': 'string'},
+                            'description': {'type': 'string'},
+                            'path': {'type': 'string'},
+                            'excluded': {'type': 'array'},
+                            'base_directory': {'type': 'string'},
+                            'match': {'type': 'string'},
+                            'replace': {'type': 'string'},
+                            'with': {'type': 'string'},
+                            'to_file': {'type': 'string'},
+                            'must_include': {'type': 'array'},
+                            'tags': {'type': 'array'},
+                            'validator': {
+                                'type': 'object',
+                                'properties': {
+                                    'type': {'enum': ['per_type', 'per_file']},
+                                    'path': {'type': 'string'},
+                                    'function': {'type': 'string'}
+                                },
+                                'required': ['path', 'function'],
+                                "additionalProperties": False
+                            }
+                        },
+                        # TODO: `match` should not be required and should
+                        # default to `replace`
+                        'required': ['path', 'match', 'replace', 'with'],
+                        "additionalProperties": False
+                    }
+                ]
+            }
+        },
+        'required': ['paths'],
+        "additionalProperties": False
+    }
+    logger.info('Validating configuration...')
+    jsonschema.validate(config, schema)
 
 
 class RepexError(Exception):
@@ -669,6 +699,9 @@ CLICK_CONTEXT_SETTINGS = dict(
               multiple=True,
               help='A tag to match with a set of tags in the config. '
                    'Can be used multiple times [config only]')
+@click.option('--validate/--no-validate',
+              default=True,
+              help='Validate the config (defaults to True) [config only]')
 @click.option('-v',
               '--verbose',
               default=False,
@@ -689,6 +722,7 @@ def main(ftype,
          vars_file,
          var,
          tag,
+         validate,
          verbose):
     """Replace strings in one or multiple files.
 
@@ -715,7 +749,8 @@ def main(ftype,
                 config_file_path=config,
                 variables=repex_vars,
                 verbose=verbose,
-                tags=list(tag))
+                tags=list(tag),
+                validate=validate)
         except (RepexError, IOError) as ex:
             sys.exit(str(ex))
     else:

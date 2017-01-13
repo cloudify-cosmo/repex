@@ -38,37 +38,36 @@ MOCK_FILES_WITH_VALIDATOR = os.path.join(
     TEST_RESOURCES_DIR, 'files_with_failed_validator.yaml')
 
 
-def _invoke(command):
-    cfy = clicktest.CliRunner()
+def _invoke(params=None):
+    rpx = clicktest.CliRunner()
 
-    lexed_command = command if isinstance(command, list) \
-        else shlex.split(command)
-    func = lexed_command[0]
-    params = lexed_command[1:]
-    return cfy.invoke(getattr(repex, func), params)
+    if params:
+        params = params if isinstance(params, list) \
+            else shlex.split(params)
+    return rpx.invoke(getattr(repex, 'main'), params)
 
 
 class TestBase:
     def test_invoke_main(self):
-        result = _invoke('main')
-        assert 'Usage: main [OPTIONS] COMMAND [ARGS]' in result.output
+        result = _invoke()
+        assert 'Must either provide a path or a' in result.output
 
 
 class TestIterate:
     def test_illegal_iterate_invocation(self):
-        result = _invoke('from_config non_existing_config')
+        result = _invoke('-c non_existing_config')
         assert type(result.exception) == SystemExit
         assert result.exit_code == 1
         assert 'Could not open config file: ' in result.output
 
     def test_illegal_replace_invocation(self):
-        result = _invoke('in_path non_existing_path -r x -w y')
+        result = _invoke('non_existing_path -r x -w y')
         assert type(result.exception) == SystemExit
         assert result.exit_code == 1
         assert 'File not found: ' in result.output
 
     def test_mutually_exclusive_arguments(self):
-        result = _invoke('in_path --ftype=non_existing_path --to-file=x')
+        result = _invoke('--ftype=non_existing_path --to-file=x')
         assert type(result.exception) == SystemExit
         assert 'is mutually exclusive with' in result.output
 
@@ -244,7 +243,7 @@ class TestMultipleFiles:
                 f.write("version: '3.1.0-m3'")
             try:
                 _invoke(
-                    "from_config {0} --vars-file={1} "
+                    "-c {0} --vars-file={1} "
                     "--var='preversion'='3.1.0-m2'".format(
                         MOCK_MULTIPLE_FILES, tmp))
             finally:
@@ -258,7 +257,7 @@ class TestMultipleFiles:
     def test_replace_multiple_files(self):
 
         def _test(path, params, initial_value, final_value):
-            result = _invoke(['in_path', path] + params)
+            result = _invoke([path] + params)
             assert result.exit_code == 1
             # verify that all files were modified
             for version_file in self.version_files_without_excluded:

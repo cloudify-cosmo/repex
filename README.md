@@ -17,6 +17,8 @@ NOTE: Beginning with `repex 0.4.3`, Windows is officially supported (and tested 
 
 NOTE: Beggining with `repex 1.0.0`, Python 3 is officially supported.
 
+NOTE: `repex 1.1.0` has breaking CLI changes. See below.
+
 `repex` replaces strings in single/multiple files based on regular expressions.
 
 Why not Jinja you ask? Because sometimes you have existing files which are not templated in which you'd like to replace things.. and even if they're in your control, sometimes templates are just not viable if you need something working OOB.
@@ -53,18 +55,79 @@ Repex exposes a CLI which can be used to do one of two things:
 1. Use repex's power to basically replace sed in the command line.
 2. Execute repex using a config file.
 
+NOTE: When passing a config file, repex will ignore any options passed which are not `config-only`.
+
+```bash
+$ rpx -h
+Usage: rpx [OPTIONS] [REGEX_PATH]
+
+  Replace strings in one or multiple files.
+
+  You must either provide `REGEX_PATH` or use the `-c` flag to provide a
+  valid repex configuration.
+
+  `REGEX_PATH` can be: a regex of paths under `basedir`, a path to a single
+  directory under `basedir`, or a path to a single file.
+
+  It's important to note that if the `PATH_TO_HANDLE` is a path to a
+  directory, the `-t,--ftype` flag must be provided.
+
+Options:
+  -r, --replace TEXT              A regex string to replace [non-config only]
+  -w, --replace-with TEXT         Non-regex string to replace with [non-config
+                                  only]
+  -m, --match TEXT                Context regex match for `replace`. If this
+                                  is ommited, the context will be the entire
+                                  content of the file [non-config only]
+  -t, --ftype TEXT                A regex file name to look for. Defaults to
+                                  `None`, which means that `PATH_TO_HANDLE`
+                                  must be a path to a single file [non-config
+                                  only]. This argument is mutually exclusive
+                                  with arguments: [to_file]
+  -b, --basedir TEXT              Where to start looking for `path` from.
+                                  Defaults to the cwd [non-config only]
+  -x, --exclude-paths TEXT        Paths to exclude when searching for files to
+                                  handle. This can be used multiple times
+                                  [non-config only]
+  -i, --must-include TEXT         Files found must include this string. This
+                                  can be used multiple times [non-config only]
+  --validator TEXT                Validator file:function (e.g.
+                                  validator.py:valid_func [non-config only]
+  --validator-type [per_file|per_type]
+                                  Type of validation to perform. `per_type`
+                                  will validate the last file found while
+                                  `per_file` will run validation for each file
+                                  found. Defaults to `per_type` [non-config
+                                  only]
+  --to-file TEXT                  File path to write the output to [non-config
+                                  only]. This argument is mutually exclusive
+                                  with arguments: [ftype]
+  -c, --config TEXT               Path to a repex config file [config only]
+  --vars-file TEXT                Path to YAML based vars file [config only]
+  --var TEXT                      A variable to pass to Repex. Can be used
+                                  multiple times. Format should be
+                                  `'key'='value'` [config only]
+  --tag TEXT                      A tag to match with a set of tags in the
+                                  config. Can be used multiple times [config
+                                  only]
+  -v, --verbose                   Show verbose output
+  -h, --help                      Show this message and exit.
+
+  ```
+
+
 #### Using repex like sed
 
 Just like sed:
 
 ```bash
-rpx in-path /path/to/my/file --replace 3.3 --rwith 3.4
+rpx /path/to/my/file --replace 3.3 --rwith 3.4
 ```
 
 Much, much more than sed:
 
 ```bash
-rpx in-path 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 --validator check_validity/resources/validator.py:validate --must-include blah --must-include yay! --exclude check_validity/resources/VERSION --exclude another/VERSION --validate-before -v
+rpx 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 -i blah -i yay! -x check_validity/resources/VERSION -x another/VERSION -v --validator check_validity/resources/validator.py:validate
 ```
 
 This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
@@ -82,7 +145,7 @@ Note that you must either escape special chars or use single quotes where applic
 Passing a config file to the CLI is done as follows:
 
 ```bash
-rpx from-config config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
+rpx -c config.yaml -t my_tag -v --vars-file vars.yaml --var 'x'='y' --var 'version'='3.3.0-m3'
 ```
 
 See below for how to use the config file.

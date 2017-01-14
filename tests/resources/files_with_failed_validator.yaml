@@ -16,5 +16,5 @@ paths:
             - version
         validator:
             type: per_file
-            path: "{{ .base_directory }}/validator.py"
+            path: "tests/resources/validator.py"
             function: succeed_validate

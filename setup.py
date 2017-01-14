@@ -23,8 +23,9 @@ setup(
     py_modules=['repex'],
     entry_points={'console_scripts': ['rpx = repex:main']},
     install_requires=[
-        "pyyaml==3.12",
         "click==6.7",
+        "pyyaml==3.12",
+        "jsonschema==2.5.1"
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

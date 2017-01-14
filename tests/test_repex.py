@@ -77,9 +77,9 @@ class TestIterate:
         assert repex.ERRORS['no_config_supplied'] in str(ex)
 
     def test_iterate_no_files(self):
-        with pytest.raises(TypeError) as ex:
+        with pytest.raises(repex.RepexError) as ex:
             repex.iterate(config_file_path=EMPTY_CONFIG_FILE, variables={})
-        assert repex.ERRORS['invalid_yaml'] in str(ex)
+        assert "'paths' is a required property" in str(ex)
 
     def test_iterate_variables_not_dict(self):
         with pytest.raises(TypeError) as ex:
@@ -122,19 +122,6 @@ class TestPathHandler:
         }
         expected_error = 'prevalidation_failed'
         self._test_repex_errors(path_object, expected_error)
-
-    def test_file_must_include_not_list(self):
-        path_object = {
-            'path': MOCK_TEST_FILE,
-            'match': '3.1.0-m2',
-            'replace': '3.1.0',
-            'with': '',
-            'to_file': 'VERSION.test',
-            'must_include': ''
-        }
-        expected_error = 'must_include_not_list'
-        self._test_repex_errors(
-            path_object, expected_error, error_type=TypeError)
 
     def _test_path_with_and_without_base_directory(self):
         p = {
@@ -303,31 +290,6 @@ class TestConfig():
                 TEST_RESOURCES_DIR, 'bad_mock_files.yaml'))
         assert repex.ERRORS['invalid_yaml'] in str(ex)
 
-    def test_config_variables_not_dict(self):
-        config = {
-            'paths': [{'key': 'value'}],
-            'variables': '{{ .x }}'
-        }
-        with pytest.raises(TypeError) as ex:
-            repex._get_config(config=config)
-        assert repex.ERRORS['variables_not_dict'] in str(ex)
-
-    def test_config_paths_not_list(self):
-        config = {
-            'paths': {'key': 'value'},
-        }
-        with pytest.raises(TypeError) as ex:
-            repex._get_config(config=config)
-        assert repex.ERRORS['paths_not_list'] in str(ex)
-
-    def test_config_no_paths(self):
-        config = {
-            'paths': '',
-        }
-        with pytest.raises(repex.RepexError) as ex:
-            repex._get_config(config=config)
-        assert repex.ERRORS['no_paths_configured'] in str(ex)
-
 
 class TestValidator():
 
@@ -373,17 +335,9 @@ class TestValidator():
 
     def test_invalid_validator_type(self):
         self.validator_config.update({'type': 'bad_type'})
-        self._check_config('invalid_validator_type')
-
-    def test_validator_path_not_supplied(self):
-        self.validator_config.pop('path')
-        self._check_config('validator_path_not_supplied')
-
-    def test_validator_function_not_supplied(self):
-        self.validator_config.pop('function')
-        self.validator_config['path'] = os.path.join(
-            TEST_RESOURCES_DIR, 'validator.py')
-        self._check_config('validator_function_not_supplied')
+        with pytest.raises(repex.RepexError) as ex:
+            repex.iterate(config=self.validation_config)
+        assert "bad_type' is not one of ['per_type', 'per_file']" in str(ex)
 
     def test_validator_path_not_found(self):
         self.validator_config.update({'path': 'bad_path'})
@@ -500,7 +454,6 @@ class TestSingleFile():
         finally:
             os.environ.pop('REPEX_VAR_VERSION')
 
-    # @mock.patch('re.search', return_value=False)
     def test_variable_not_expanded(self):
         attributes = {'path': '"{{ .some_var }}"'}
         variables = {'some_var': '3.1.0-m3'}
@@ -560,15 +513,6 @@ class TestGetAllFiles():
             assert version_file in files
         for f in self.excluded_files:
             assert os.path.join(self.base_dir, f) not in files
-
-    def test_get_all_files_excluded_list_is_str(self):
-        with pytest.raises(TypeError) as ex:
-            repex.get_all_files(
-                filename_regex=TEST_FILE_NAME,
-                path=TEST_RESOURCES_DIR_PATTERN,
-                base_dir=TEST_RESOURCES_DIR,
-                excluded_paths='INVALID_EXCLUDED_LIST')
-        assert repex.ERRORS['excluded_paths_not_list'] in str(ex)
 
     def test_get_all_regex_files(self):
         mock_yaml_files = [f for f in os.listdir(TEST_RESOURCES_DIR)

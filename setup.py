@@ -12,13 +12,13 @@ def read(*parts):
 
 setup(
     name='repex',
-    version="1.0.0",
+    version="1.1.0",
     url='https://github.com/cloudify-cosmo/repex',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',
     license='LICENSE',
     platforms='All',
-    description='Replace Regular Expressions in files',
+    description='sed on steroids',
     long_description=read('README.rst'),
     py_modules=['repex'],
     entry_points={'console_scripts': ['rpx = repex:main']},

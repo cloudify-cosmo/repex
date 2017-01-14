@@ -26,31 +26,21 @@ import jsonschema
 
 
 ERRORS = {
-    'validator_script_not_found': 'Validator script does not exist',
     'invalid_yaml': '`config` must be a valid repex config in YAML form',
     'no_config_supplied':
         'Either `config` or `config_file_path` must be supplied',
-    'paths_not_list': '`paths` must be of type list',
     'variables_not_dict': '`variables` must be of type dict',
     'tags_not_list': '`tags` must be of type list',
     'config_file_not_found': 'Could not open config file',
-    'excluded_paths_not_list': '`excluded_paths` must be of type list',
     'string_failed_to_expand': 'String failed to expand',
-    'no_paths_configured': 'No paths configured in yaml.',
     'file_not_found': 'File not found',
     'type_path_collision': 'If `type` is specified, `path` must not be a '
                            'path to a single file.',
     'to_file_requires_explicit_path': '`to_file` requires an explicit single '
                                       'file `path`',
-    'must_include_not_list': '`must_include` must be of type list',
     'prevalidation_failed': 'Prevalidation failed. Some required strings were '
                             'not found',
     'validation_failed': 'Validation failed!',
-    'invalid_validator_type': 'Invalid validator type',
-    'validator_path_not_supplied': '`path` to validator script must be '
-                                   'supplied in validator config',
-    'validator_function_not_supplied': 'Validation `function` to use must be '
-                                       'supplied in validator config',
     'validator_path_not_found': 'Path to validator script not found',
     'validator_function_not_found': 'Validation function not found in script'
 }
@@ -72,9 +62,8 @@ def setup_logger():
 logger = setup_logger()
 
 
-def _set_global_verbosity_level(is_verbose_output=False):
-    if is_verbose_output:
-        logger.setLevel(logging.DEBUG)
+def set_verbose():
+    logger.setLevel(logging.DEBUG)
 
 
 def _import_config_file(config_file_path):
@@ -129,7 +118,6 @@ def get_all_files(filename_regex,
                   path,
                   base_dir,
                   excluded_paths=None,
-                  verbose=False,
                   excluded_filename_regex=None):
     """Get all files for processing.
 
@@ -139,8 +127,6 @@ def get_all_files(filename_regex,
     or folders. `excluded_paths` are explicit paths, not regex.
     `excluded_filename_regex` are files to be excluded as well.
     """
-    _set_global_verbosity_level(verbose)
-
     # For windows
     def replace_backslashes(string):
         return string.replace('\\', '/')
@@ -216,9 +202,6 @@ class Validator(object):
 class VariablesHandler(object):
     """Handle variable expansion and replacement
     """
-
-    def __init__(self, verbose=False):
-        _set_global_verbosity_level(verbose)
 
     def expand(self, repex_vars, attributes):
         r"""Receive a dict of variables and a dict of attributes
@@ -323,7 +306,6 @@ def _check_for_matching_tags(repex_tags, path_tags):
 def iterate(config_file_path=None,
             config=None,
             variables=None,
-            verbose=False,
             tags=None,
             validate=True):
     """Iterate over all paths in `config_file_path`
@@ -331,11 +313,8 @@ def iterate(config_file_path=None,
     :param string config_file_path: a path to a repex config file
     :param dict config: a dictionary representing a repex config
     :param dict variables: a dict of variables (can be None)
-    :param bool verbose: verbose output flag
     :param list tags: a list of tags to check for
     """
-    _set_global_verbosity_level(verbose)
-
     # TODO: Check if tags can be a tuple instead of a list
     if not isinstance(variables or {}, dict):
         raise TypeError(ERRORS['variables_not_dict'])
@@ -361,24 +340,21 @@ def iterate(config_file_path=None,
         tags_match = _check_for_matching_tags(repex_tags, path_tags)
         if tags_match:
             logger.debug('Matching tag(s) found for path: %s...', path)
-            handle_path(path, repex_vars, verbose)
+            handle_path(path, repex_vars)
         else:
             logger.debug('No matching tags found for path: %s. Skipping...',
                          path)
 
 
-def handle_path(pathobj, variables=None, verbose=False):
+def handle_path(pathobj, variables=None):
     """Iterate over all chosen files in a path
 
     :param dict pathobj: a dict of a specific path in the config
     :param dict variables: a dict of variables (can be None)
-    :param bool verbose: verbose output flag
     """
-    _set_global_verbosity_level(verbose)
-
     variables = variables or {}
     if variables:
-        variable_expander = VariablesHandler(verbose)
+        variable_expander = VariablesHandler()
         pathobj = variable_expander.expand(variables, pathobj)
     pathobj['base_directory'] = pathobj.get('base_directory', os.getcwd())
     logger.debug('Path to process: %s', os.path.join(
@@ -396,8 +372,7 @@ def handle_path(pathobj, variables=None, verbose=False):
         pathobj['replace'],
         pathobj['with'],
         pathobj.get('to_file', False),
-        pathobj.get('must_include', []),
-        verbose
+        pathobj.get('must_include', [])
     )
 
     def verify_file_validation(file_to_validate):
@@ -422,8 +397,8 @@ def handle_path(pathobj, variables=None, verbose=False):
             pathobj['type'],
             pathobj['path'],
             pathobj['base_directory'],
-            pathobj.get('excluded', []),
-            verbose)
+            pathobj.get('excluded', [])
+        )
         for file_to_handle in files:
             rpx.handle_file(file_to_handle)
             if validate and validator_type == 'per_file':
@@ -442,10 +417,7 @@ class Repex(object):
                  pattern_to_replace,
                  replace_with,
                  to_file=False,
-                 must_include=None,
-                 verbose=False):
-        _set_global_verbosity_level(verbose)
-
+                 must_include=None):
         self.match_regex = match_regex
         self.pattern_to_replace = pattern_to_replace
         self.match_expression = re.compile('(?P<matchgroup>{0})'.format(
@@ -736,7 +708,8 @@ def main(ftype,
     It's important to note that if the `PATH_TO_HANDLE` is a path to a
     directory, the `-t,--ftype` flag must be provided.
     """
-    _set_global_verbosity_level(verbose)
+    if verbose:
+        set_verbose()
 
     if not config and not regex_path:
         click.echo('Must either provide a path or a viable repex config file.')
@@ -748,7 +721,6 @@ def main(ftype,
             iterate(
                 config_file_path=config,
                 variables=repex_vars,
-                verbose=verbose,
                 tags=list(tag),
                 validate=validate)
         except (RepexError, IOError) as ex:
@@ -779,6 +751,6 @@ def main(ftype,
                 'function': validator_function
             }
         try:
-            handle_path(pathobj, verbose=verbose)
+            handle_path(pathobj)
         except (RepexError, IOError) as ex:
             sys.exit(str(ex))

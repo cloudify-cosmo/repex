@@ -17,7 +17,7 @@ NOTE: Beginning with `repex 0.4.3`, Windows is officially supported (and tested 
 
 NOTE: Beggining with `repex 1.0.0`, Python 3 is officially supported.
 
-NOTE: `repex 1.1.0` has breaking CLI changes. See below.
+NOTE: `repex 1.1.0` has breaking CLI and API changes. See [CHANGES](CHANGES) for more information.
 
 `repex` replaces strings in single/multiple files based on regular expressions.
 
@@ -110,6 +110,8 @@ Options:
   --tag TEXT                      A tag to match with a set of tags in the
                                   config. Can be used multiple times [config
                                   only]
+  --validate / --no-validate      Validate the config (defaults to True)
+                                  [config only]
   -v, --verbose                   Show verbose output
   -h, --help                      Show this message and exit.
 

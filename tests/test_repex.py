@@ -38,6 +38,9 @@ MOCK_FILES_WITH_VALIDATOR = os.path.join(
     TEST_RESOURCES_DIR, 'files_with_failed_validator.yaml')
 
 
+repex.set_verbose()
+
+
 def _invoke(params=None):
     rpx = clicktest.CliRunner()
 
@@ -55,7 +58,7 @@ class TestBase:
 
 class TestIterate:
     def test_illegal_iterate_invocation(self):
-        result = _invoke('-c non_existing_config')
+        result = _invoke('-c non_existing_config -v')
         assert type(result.exception) == SystemExit
         assert result.exit_code == 1
         assert 'Could not open config file: ' in result.output
@@ -98,7 +101,7 @@ class TestPathHandler:
             'to_file': '/mock.test'
         }
         with pytest.raises(IOError) as ex:
-            repex.handle_path(path_object, verbose=True)
+            repex.handle_path(path_object)
         assert 'Permission denied' in str(ex)
 
     def _test_repex_errors(self,
@@ -106,7 +109,7 @@ class TestPathHandler:
                            error,
                            error_type=repex.RepexError):
         with pytest.raises(error_type) as ex:
-            repex.handle_path(path_object, verbose=True)
+            repex.handle_path(path_object)
         assert repex.ERRORS[error] in str(ex)
 
     def test_file_must_include_missing(self):
@@ -137,12 +140,12 @@ class TestPathHandler:
             'replace': '3.1.0-m3',
             'with': '3.1.0-m2',
         }
-        repex.handle_path(p, verbose=True)
+        repex.handle_path(p)
         with open(p['path']) as f:
             content = f.read()
         assert '3.1.0-m2' not in content
         assert '3.1.0-m3' in content
-        repex.handle_path(t, verbose=True)
+        repex.handle_path(t)
         with open(t['path']) as f:
             content = f.read()
         assert '3.1.0-m2' in content
@@ -381,7 +384,6 @@ class TestSingleFile():
         repex.iterate(
             config_file_path=MOCK_SINGLE_FILE,
             variables=variables,
-            verbose=True,
             tags=tags)
         assert not os.path.isfile(self.single_file_output_file)
 
@@ -389,10 +391,7 @@ class TestSingleFile():
         tags = ['test_tag']
         self.single_file_config['paths'][0]['tags'] = tags
         variables = {'version': '3.1.0-m3'}
-        repex.iterate(
-            config=self.single_file_config,
-            variables=variables,
-            verbose=True)
+        repex.iterate(config=self.single_file_config, variables=variables)
         assert not os.path.isfile(self.single_file_output_file)
 
     def test_iterate_path_tags_user_tags(self):
@@ -402,7 +401,6 @@ class TestSingleFile():
         repex.iterate(
             config=self.single_file_config,
             variables=variables,
-            verbose=True,
             tags=tags)
         with open(self.single_file_output_file) as f:
             assert '3.1.0-m3' in f.read()
@@ -415,7 +413,6 @@ class TestSingleFile():
         repex.iterate(
             config=self.single_file_config,
             variables=variables,
-            verbose=True,
             tags=any_tag)
         with open(self.single_file_output_file) as f:
             assert '3.1.0-m3' in f.read()
@@ -423,10 +420,7 @@ class TestSingleFile():
     def test_tags_not_list(self):
         tags = 'x'
         with pytest.raises(TypeError) as ex:
-            repex.iterate(
-                config=self.single_file_config,
-                tags=tags,
-                verbose=True)
+            repex.iterate(config=self.single_file_config, tags=tags)
         assert repex.ERRORS['tags_not_list'] in str(ex)
 
     def test_iterate_with_vars(self):
@@ -532,7 +526,6 @@ class TestGetAllFiles():
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR,
             excluded_paths=['multiple'],
-            verbose=True,
             excluded_filename_regex='.*yaml',)
         assert len(mock_yaml_files) == len(files)
         for f in mock_yaml_files:

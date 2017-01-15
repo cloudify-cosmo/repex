@@ -1,6 +1,26 @@
+**1.1.0 (2017.01.15)**
+
+NOTE: There are breaking changes in this release
+
+* (Issue #63) Consolidate subcommands `in-path` and `from-config` for a single `rpx` command. See README for usage.
+* (Issue #62) Add repex config schema validation
+* (Issue #59) Add official support for py33, py36 and pypy
+* (Issue #39) Fix logger not getting verbosity level correctly in certain situations
+* (Issue #40) Fix undefined `file_to_handle` var when no matches are found
+* (Issue #41) Fix `.tmp` file for each file remains in fs when no matches are found
+* (Issue #53) Do not print log-level and logger name with each log message. Only `timestamp - message`
+* (Issue #65) For each path in the config, print its description for easy log tailing
+* Add CHANGES file
+* Add MANIFEST.in file (Which includes LICENSE)
+* Add requires.io requirements monitoring
+* Add landscape.io code health monitoring
+* Add codecov.io code coverage monitoring
+* Update README to accommodate for `iterate` function API changes
+* Replace nose with pytest
+
 **1.0.0 (2016.06.01)**
 
-* Change CLI command names `repl` and `iter` to `in` and `from` respectively
+* Change CLI command names `repl` and `iter` to `in-path` and `from-config` respectively
 * `path` and `config-file` in `repl` and `iter` have been changed to positional arguments respectively
 * Reorganize the code, remove unnecessary logger configuration and make repex a single module
 * Introduced deep error handling

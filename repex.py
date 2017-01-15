@@ -352,6 +352,9 @@ def handle_path(pathobj, variables=None):
     :param dict pathobj: a dict of a specific path in the config
     :param dict variables: a dict of variables (can be None)
     """
+    logger.info('Handling path with description: %s',
+                pathobj.get('description'))
+
     variables = variables or {}
     if variables:
         variable_expander = VariablesHandler()

@@ -36,6 +36,8 @@ AND, you can use variables (sorta Jinja2 style). How cool is that? See reference
 
 ## Installation
 
+`repex` is supported and tested on Python 2.6, 2.7, 3.3+ and PyPy.
+
 ```shell
 pip install repex
 ```

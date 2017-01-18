@@ -71,49 +71,60 @@ Usage: rpx [OPTIONS] [REGEX_PATH]
   `REGEX_PATH` can be: a regex of paths under `basedir`, a path to a single
   directory under `basedir`, or a path to a single file.
 
-  It's important to note that if the `PATH_TO_HANDLE` is a path to a
-  directory, the `-t,--ftype` flag must be provided.
+  It's important to note that if the `REGEX_PATH` is a path to a directory,
+  the `-t,--ftype` flag must be provided.
 
 Options:
-  -r, --replace TEXT              A regex string to replace [non-config only]
-  -w, --replace-with TEXT         Non-regex string to replace with [non-config
-                                  only]
+  -r, --replace TEXT              A regex string to replace. Mutually
+                                  exclusive with: [config]
+  -w, --replace-with TEXT         Non-regex string to replace with. Mutually
+                                  exclusive with: [config]
   -m, --match TEXT                Context regex match for `replace`. If this
                                   is ommited, the context will be the entire
-                                  content of the file [non-config only]
+                                  content of the file. Mutually exclusive
+                                  with: [config]
   -t, --ftype TEXT                A regex file name to look for. Defaults to
                                   `None`, which means that `PATH_TO_HANDLE`
                                   must be a path to a single file [non-config
-                                  only]. This argument is mutually exclusive
-                                  with arguments: [to_file]
+                                  only]. Mutually exclusive with: [to_file,
+                                  config]
   -b, --basedir TEXT              Where to start looking for `path` from.
-                                  Defaults to the cwd [non-config only]
+                                  Defaults to the cwd. Mutually exclusive
+                                  with: [config]
   -x, --exclude-paths TEXT        Paths to exclude when searching for files to
-                                  handle. This can be used multiple times
-                                  [non-config only]
+                                  handle. This can be used multiple times.
+                                  Mutually exclusive with: [config]
   -i, --must-include TEXT         Files found must include this string. This
-                                  can be used multiple times [non-config only]
+                                  can be used multiple times. Mutually
+                                  exclusive with: [config]
   --validator TEXT                Validator file:function (e.g.
-                                  validator.py:valid_func [non-config only]
+                                  validator.py:valid_func [non-config only].
+                                  Mutually exclusive with: [config]
   --validator-type [per_file|per_type]
                                   Type of validation to perform. `per_type`
                                   will validate the last file found while
                                   `per_file` will run validation for each file
                                   found. Defaults to `per_type` [non-config
-                                  only]
-  --to-file TEXT                  File path to write the output to [non-config
-                                  only]. This argument is mutually exclusive
-                                  with arguments: [ftype]
-  -c, --config TEXT               Path to a repex config file [config only]
-  --vars-file TEXT                Path to YAML based vars file [config only]
+                                  only]. Mutually exclusive with: [config]
+  --to-file TEXT                  File path to write the output to. Mutually
+                                  exclusive with: [ftype, config]
+  -c, --config TEXT               Path to a repex config file. Mutually
+                                  exclusive with: [REGEX_PATH]
+  --vars-file TEXT                Path to YAML based vars file. Mutually
+                                  exclusive with: [REGEX_PATH]
   --var TEXT                      A variable to pass to Repex. Can be used
                                   multiple times. Format should be
-                                  `'key'='value'` [config only]
+                                  `'key'='value'`. Mutually exclusive with:
+                                  [REGEX_PATH]
   --tag TEXT                      A tag to match with a set of tags in the
-                                  config. Can be used multiple times [config
-                                  only]
-  --validate / --no-validate      Validate the config (defaults to True)
-                                  [config only]
+                                  config. Can be used multiple times. Mutually
+                                  exclusive with: [REGEX_PATH]
+  --validate / --no-validate      Validate the config (defaults to True).
+                                  Mutually exclusive with: [validate_only,
+                                  REGEX_PATH]
+  --validate-only                 Only validate, no run (defaults to False).
+                                  Mutually exclusive with: [validate,
+                                  REGEX_PATH]
   -v, --verbose                   Show verbose output
   -h, --help                      Show this message and exit.
 
@@ -134,7 +145,7 @@ Much, much more than sed:
 rpx 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 -i blah -i yay! -x check_validity/resources/VERSION -x another/VERSION -v --validator check_validity/resources/validator.py:validate
 ```
 
-This will look for all files named "VERISON" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
+This will look for all files named "VERSION" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
 
 Note that you must either escape special chars or use single quotes where applicable, that is, where regex strings are provided and bash expansion takes place.
 

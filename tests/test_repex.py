@@ -57,6 +57,87 @@ class TestBase:
 
 
 class TestIterate:
+    def setup_method(self, test_method):
+        self.version_files = []
+        for root, _, files in os.walk(MULTIPLE_DIR):
+            self.version_files = \
+                [os.path.join(root, f) for f in files if f == 'mock_VERSION']
+        self.version_files_without_excluded = \
+            [f for f in self.version_files if f != EXCLUDED_FILE]
+        self.excluded_files = [f for f in self.version_files if f not
+                               in self.version_files_without_excluded]
+
+    def test_iterate_multiple_files(self):
+
+        def _test(replaced_value, initial_value):
+            for version_file in self.version_files_without_excluded:
+                with open(version_file) as f:
+                    assert replaced_value in f.read()
+            for version_file in self.excluded_files:
+                with open(version_file) as f:
+                    assert initial_value in f.read()
+
+        # TODO: This is some stupid thing related to formatting on windows
+        # The direct invocation with click doesn't work on windows..
+        # probably due to some string formatting of the command.
+        if os.name == 'nt':
+            variables = {'preversion': '3.1.0-m2', 'version': '3.1.0-m3'}
+            repex.iterate(MOCK_MULTIPLE_FILES, variables=variables)
+        else:
+            fd, tmp = tempfile.mkstemp()
+            os.close(fd)
+            with open(tmp, 'w') as f:
+                f.write("version: '3.1.0-m3'")
+            try:
+                _invoke(
+                    "-c {0} --vars-file={1} "
+                    "--var='preversion'='3.1.0-m2'".format(
+                        MOCK_MULTIPLE_FILES, tmp))
+            finally:
+                os.remove(tmp)
+
+        _test('"version": "3.1.0-m3"', '"version": "3.1.0-m2"')
+        variables = {'preversion': '3.1.0-m3', 'version': '3.1.0-m2'}
+        repex.iterate(MOCK_MULTIPLE_FILES, variables=variables)
+        _test('"version": "3.1.0-m2"', '"version": "3.1.0-m2"')
+
+    @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
+    def test_iterate_validate_only(self):
+        result = _invoke("-c {0} --validate-only".format(MOCK_MULTIPLE_FILES))
+        # This is enough for now. If the validation succeeded, we would expect
+        # it to raise an exception, which happens in other
+        assert result.exit_code == 0
+
+    def test_replace_multiple_files(self):
+
+        def _test(path, params, initial_value, final_value):
+            result = _invoke([path] + params)
+            assert result.exit_code == 1
+            # verify that all files were modified
+            for version_file in self.version_files_without_excluded:
+                with open(version_file) as f:
+                    assert initial_value in f.read()
+            # all other than the excluded ones
+            for version_file in self.excluded_files:
+                with open(version_file) as f:
+                    assert final_value in f.read()
+
+        params = [
+            '-t', 'mock_VERSION',
+            '-b', 'tests/resources/',
+            '-x', 'multiple/exclude',
+            '-m', '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?"',
+            '-r', '\d+\.\d+(\.\d+)?(-\w\d+)?',
+            '-w', '3.1.0-m3',
+            '--must-include=date',
+            '--validator=tests/resources/validator.py:validate',
+        ]
+        _test('multiple', params, '3.1.0-m3', '3.1.0-m2')
+        params[11] = '3.1.0-m2'
+        _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
+        params[9] = 'NON_EXISTING_STRING'
+        _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
+
     def test_illegal_iterate_invocation(self):
         result = _invoke('-c non_existing_config -v')
         assert type(result.exception) == SystemExit
@@ -197,82 +278,6 @@ class TestPathHandler:
         }
         expected_error = 'file_not_found'
         self._test_repex_errors(path_object, expected_error)
-
-
-class TestMultipleFiles:
-    def setup_method(self, test_method):
-        self.version_files = []
-        for root, _, files in os.walk(MULTIPLE_DIR):
-            self.version_files = \
-                [os.path.join(root, f) for f in files if f == 'mock_VERSION']
-        self.version_files_without_excluded = \
-            [f for f in self.version_files if f != EXCLUDED_FILE]
-        self.excluded_files = [f for f in self.version_files if f not
-                               in self.version_files_without_excluded]
-
-    def test_iterate_multiple_files(self):
-
-        def _test(replaced_value, initial_value):
-            for version_file in self.version_files_without_excluded:
-                with open(version_file) as f:
-                    assert replaced_value in f.read()
-            for version_file in self.excluded_files:
-                with open(version_file) as f:
-                    assert initial_value in f.read()
-
-        # TODO: This is some stupid thing related to formatting on windows
-        # The direct invocation with click doesn't work on windows..
-        # probably due to some string formatting of the command.
-        if os.name == 'nt':
-            variables = {'preversion': '3.1.0-m2', 'version': '3.1.0-m3'}
-            repex.iterate(MOCK_MULTIPLE_FILES, variables=variables)
-        else:
-            fd, tmp = tempfile.mkstemp()
-            os.close(fd)
-            with open(tmp, 'w') as f:
-                f.write("version: '3.1.0-m3'")
-            try:
-                _invoke(
-                    "-c {0} --vars-file={1} "
-                    "--var='preversion'='3.1.0-m2'".format(
-                        MOCK_MULTIPLE_FILES, tmp))
-            finally:
-                os.remove(tmp)
-
-        _test('"version": "3.1.0-m3"', '"version": "3.1.0-m2"')
-        variables = {'preversion': '3.1.0-m3', 'version': '3.1.0-m2'}
-        repex.iterate(MOCK_MULTIPLE_FILES, variables=variables)
-        _test('"version": "3.1.0-m2"', '"version": "3.1.0-m2"')
-
-    def test_replace_multiple_files(self):
-
-        def _test(path, params, initial_value, final_value):
-            result = _invoke([path] + params)
-            assert result.exit_code == 1
-            # verify that all files were modified
-            for version_file in self.version_files_without_excluded:
-                with open(version_file) as f:
-                    assert initial_value in f.read()
-            # all other than the excluded ones
-            for version_file in self.excluded_files:
-                with open(version_file) as f:
-                    assert final_value in f.read()
-
-        params = [
-            '-t', 'mock_VERSION',
-            '-b', 'tests/resources/',
-            '-x', 'multiple/exclude',
-            '-m', '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?"',
-            '-r', '\d+\.\d+(\.\d+)?(-\w\d+)?',
-            '-w', '3.1.0-m3',
-            '--must-include=date',
-            '--validator=tests/resources/validator.py:validate',
-        ]
-        _test('multiple', params, '3.1.0-m3', '3.1.0-m2')
-        params[11] = '3.1.0-m2'
-        _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
-        params[9] = 'NON_EXISTING_STRING'
-        _test('multiple', params, '3.1.0-m2', '3.1.0-m2')
 
 
 class TestConfig():

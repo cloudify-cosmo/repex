@@ -122,9 +122,11 @@ Options:
   --validate / --no-validate      Validate the config (defaults to True).
                                   Mutually exclusive with: [validate_only,
                                   REGEX_PATH]
-  --validate-only                 Only validate, no run (defaults to False).
-                                  Mutually exclusive with: [validate,
-                                  REGEX_PATH]
+  --validate-only                 Only validate the config, do not run
+                                  (defaults to False). Mutually exclusive
+                                  with: [validate, REGEX_PATH]
+  --diff                          Write the diff to a file under `cwd/.rpx
+                                  /diff-PATH` (defaults to False)
   -v, --verbose                   Show verbose output
   -h, --help                      Show this message and exit.
 
@@ -206,6 +208,7 @@ paths:
         replace: "{{ .regex }}"
         with: "{{ .version }}"
         validate_before: true
+        diff: true
         must_include:
             - "{{ .valstr }}"
             - commit
@@ -234,7 +237,8 @@ repex.iterate(
     config_file_path=CONFIG_YAML_FILE,
     config=None,  # config is simply the dict form of the contents of `CONFIG_YAML_FILE`.
     tags=['my_tag1', 'my_tag2']
-    variables=variables)
+    variables=variables,
+    diff=True)
 
 ```
 
@@ -267,6 +271,7 @@ Don't forget the spaces!
 - `with` - what you replace with.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
 - `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful while any other return value will fail the validation. The validating function receives the file's path as and a logger as arguments.
+- `diff` - if `true`, will write a git-like unified diff to a file under `cwd/.rpx/diff-PATH_REGEX`. Note that `PATH_REGEX` can be anything which means that the names of the files will look somewhat weird. The diff will be written for each replacement. See below for an example.
 
 In case you're providing a path to a file rather than a directory:
 
@@ -303,6 +308,50 @@ Some important facts about variables:
 
 - Variables with the same name sent via the API will override the hardcoded ones.
 - API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case and prefixed with `REPEX_VAR_` (so the variable "version" can be overriden by an env var called "REPEX_VAR_VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number.
+
+## Diff
+
+NOTE: THIS IS WIP! Use sparingly.
+
+Repex has the ability to write a git-like unified diff for every replacement that occurs. The diff is written to a file under `cwd/.rpx/` and will contain something that looks like the following:
+
+```text
+$ cat .rpx/diff-multipl\(e\)\? 
+...
+
+2017-01-19 11:53:22 tests/resources/multiple/mock_VERSION
+0  --- 
+1  +++ 
+2  @@ -1,7 +1,7 @@
+3   {
+4     "date": "",
+5     "commit": "",
+6  -  "version": "3.1.0-m2",
+7  +  "version": "xxx",
+8     "versiond": "3.1.0-m2",
+9     "build": "8"
+10  }
+
+2017-01-19 11:53:22 tests/resources/multiple/folders/mock_VERSION
+0  --- 
+1  +++ 
+2  @@ -1,7 +1,7 @@
+3   {
+4     "date": "",
+5     "commit": "",
+6  -  "version": "3.1.0-m2",
+7  +  "version": "xxx",
+8     "versiond": "3.1.0-m2",
+9     "build": "8"
+10  }
+
+...
+```
+
+There is currently no way to ask repex to not generate the diff for every file, so take that into consideration when working with a large amount of files.
+
+Diff generation is off by default.
+
 
 ## Testing
 

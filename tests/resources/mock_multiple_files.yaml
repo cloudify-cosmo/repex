@@ -1,6 +1,6 @@
 paths:
     -   type: mock_VERSION
-        path: multiple
+        path: multipl(e)?
         excluded:
             - multiple/excluded
         base_directory: tests/resources/

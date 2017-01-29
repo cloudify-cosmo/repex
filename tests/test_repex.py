@@ -108,6 +108,15 @@ class TestIterate:
         # it to raise an exception, which happens in other
         assert result.exit_code == 0
 
+    @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
+    def test_iterate_validate_only_no_validate(self):
+        result = _invoke("-c {0} --validate-only --no-validate".format(
+            MOCK_MULTIPLE_FILES))
+        # This is enough for now. If the validation succeeded, we would expect
+        # it to raise an exception, which happens in other
+        assert result.exit_code == 2
+        assert '`validate_only` is mutually exclusive' in result.output
+
     def test_replace_multiple_files(self):
 
         def _test(path, params, initial_value, final_value):
@@ -338,7 +347,7 @@ class TestValidator():
 
     def _check_config(self, error):
         with pytest.raises(repex.RepexError) as ex:
-            repex.Validator(self.validator_config)
+            repex._Validator(self.validator_config)
         assert repex.ERRORS[error] in str(ex)
 
     def test_invalid_validator_type(self):
@@ -355,10 +364,52 @@ class TestValidator():
         self.validator_config.update({'function': 'bad_function'})
         self.validator_config['path'] = os.path.join(
             TEST_RESOURCES_DIR, 'validator.py')
-        validator = repex.Validator(self.validator_config)
+        validator = repex._Validator(self.validator_config)
         with pytest.raises(repex.RepexError) as ex:
             validator.validate('some_file')
         assert repex.ERRORS['validator_function_not_found'] in str(ex)
+
+
+class TestTags():
+    def test_match_any_empty(self):
+        repex_tags = ['any']
+        path_tags = []
+        assert repex._match_tags(repex_tags, path_tags)
+
+    def test_match_any_with_tag(self):
+        repex_tags = ['any']
+        path_tags = ['just_a_tag']
+        assert repex._match_tags(repex_tags, path_tags)
+
+    def test_match(self):
+        repex_tags = ['just_a_tag']
+        path_tags = ['just_a_tag']
+        assert repex._match_tags(repex_tags, path_tags)
+
+    def test_match_one_of(self):
+        repex_tags = ['just_a_tag', 'other_tag']
+        path_tags = ['just_a_tag', 'other_other_tag']
+        assert repex._match_tags(repex_tags, path_tags)
+
+    def test_match_no_tags_chosen(self):
+        repex_tags = []
+        path_tags = []
+        assert repex._match_tags(repex_tags, path_tags)
+
+    def test_no_match(self):
+        repex_tags = ['not_a_tag']
+        path_tags = ['just_a_tag']
+        assert not repex._match_tags(repex_tags, path_tags)
+
+    def test_no_match_path_has_tags_but_none_chosen(self):
+        repex_tags = []
+        path_tags = ['some_tag']
+        assert not repex._match_tags(repex_tags, path_tags)
+
+    def test_no_match_tags_chosen_but_path_has_no_tags(self):
+        repex_tags = ['some_tag']
+        path_tags = []
+        assert not repex._match_tags(repex_tags, path_tags)
 
 
 class TestSingleFile():
@@ -453,27 +504,63 @@ class TestSingleFile():
         finally:
             os.environ.pop('REPEX_VAR_VERSION')
 
-    def test_variable_not_expanded(self):
-        attributes = {'path': '"{{ .some_var }}"'}
+
+class TestVariableExpansion():
+    def test_replace_using_infile_vars(self):
+        pass
+
+    def test_replace_using_api_vars(self):
+        pass
+
+    def test_replace_using_env_vars(self):
+        pass
+
+    def test_expand_variables_in_string(self):
+        attributes = {'path': '{{ .some_var }}'}
         variables = {'some_var': '3.1.0-m3'}
 
-        def false_return(*args):
-            return False
+        variable_expander = repex._VariablesHandler()
+        attributes = variable_expander.expand(variables, attributes)
+        assert attributes['path'] == '3.1.0-m3'
 
-        variable_expander = repex.VariablesHandler()
-        variable_expander._check_if_expanded = false_return
+    def test_expand_variables_in_dict(self):
+        attributes = {
+            'validator': {
+                'type': 'per_file',
+                'path': '/{{ .path }}',
+                'function': 'validate'
+            }
+        }
+        variables = {'path': 'my_validator.py'}
+
+        variable_expander = repex._VariablesHandler()
+        attributes = variable_expander.expand(variables, attributes)
+        assert attributes['validator']['path'] == '/my_validator.py'
+
+    def test_expand_variables_in_list(self):
+        attributes = {'must_include': ['x', 'y', '{{ .my_string }}']}
+        variables = {'my_string': 'my_value'}
+
+        variable_expander = repex._VariablesHandler()
+        attributes = variable_expander.expand(variables, attributes)
+        assert attributes['must_include'][2] == 'my_value'
+
+    def test_expand_variables_on_same_attribute(self):
+        attributes = {'path': '{{ .some_var }}-{{ .some_other_var }}'}
+        variables = {'some_var': '3.1.0', 'some_other_var': 'm3'}
+
+        variable_expander = repex._VariablesHandler()
+        attributes = variable_expander.expand(variables, attributes)
+        assert attributes['path'] == '3.1.0-m3'
+
+    def test_variable_not_expanded(self):
+        attributes = {'path': '"{{ .some_var }}"'}
+        variables = {'some_other_var': '3.1.0-m3'}
+
+        variable_expander = repex._VariablesHandler()
         with pytest.raises(repex.RepexError) as ex:
             variable_expander.expand(variables, attributes)
-        assert repex.ERRORS['string_failed_to_expand'] in str(ex)
-
-    def test_variable_not_expanded_again(self):
-        var_string = '{{ .some_var }}'
-        expanded_variable = 'data {{ .some_var }} data'
-
-        variable_expander = repex.VariablesHandler()
-        result = variable_expander._check_if_expanded(
-            var_string, expanded_variable)
-        assert not result
+        assert 'Variables failed to expand: {{ .some_var }}' in str(ex)
 
 
 class TestGetAllFiles():
@@ -495,7 +582,7 @@ class TestGetAllFiles():
                                in self.version_files_without_excluded]
 
     def test_get_all_files_no_exclusion(self):
-        files = repex.get_all_files(
+        files = repex._get_all_files(
             filename_regex=TEST_FILE_NAME,
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR)
@@ -503,7 +590,7 @@ class TestGetAllFiles():
             assert version_file in files
 
     def test_get_all_files_with_dir_exclusion(self):
-        files = repex.get_all_files(
+        files = repex._get_all_files(
             filename_regex=TEST_FILE_NAME,
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR,
@@ -516,7 +603,7 @@ class TestGetAllFiles():
     def test_get_all_regex_files(self):
         mock_yaml_files = [f for f in os.listdir(TEST_RESOURCES_DIR)
                            if (f.startswith('mock') and f.endswith('yaml'))]
-        files = repex.get_all_files(
+        files = repex._get_all_files(
             filename_regex='mock.*\.yaml',
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR)
@@ -526,7 +613,7 @@ class TestGetAllFiles():
 
     def test_get_all_regex_files_with_exclusion(self):
         mock_yaml_files = [os.path.join('single', 'mock_VERSION')]
-        files = repex.get_all_files(
+        files = repex._get_all_files(
             filename_regex='mock.*',
             path=TEST_RESOURCES_DIR_PATTERN,
             base_dir=TEST_RESOURCES_DIR,

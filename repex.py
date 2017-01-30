@@ -307,13 +307,16 @@ def iterate(config_file_path=None,
             config=None,
             variables=None,
             tags=None,
-            validate=True):
+            validate=True,
+            validate_only=False):
     """Iterate over all paths in `config_file_path`
 
     :param string config_file_path: a path to a repex config file
     :param dict config: a dictionary representing a repex config
     :param dict variables: a dict of variables (can be None)
     :param list tags: a list of tags to check for
+    :param validate: whether to perform schema validation on the config
+    :param validate_only: whether to only perform validation without running
     """
     # TODO: Check if tags can be a tuple instead of a list
     if not isinstance(variables or {}, dict):
@@ -322,11 +325,11 @@ def iterate(config_file_path=None,
         raise TypeError(ERRORS['tags_not_list'])
 
     config = _get_config(config_file_path, config)
-    if validate:
-        try:
-            _validate_config_schema(config)
-        except jsonschema.exceptions.ValidationError as ex:
-            raise RepexError(ex)
+    if validate or validate_only:
+        _validate_config_schema(config)
+    if validate_only:
+        logger.info('Config file validation completed successfully!')
+        sys.exit(0)
 
     repex_paths = config['paths']
     vars_from_config = config['variables']
@@ -335,15 +338,19 @@ def iterate(config_file_path=None,
     logger.debug('Chosen tags: %s', repex_tags)
 
     for path in repex_paths:
-        path_tags = path.get('tags', [])
-        logger.debug('Checking chosen tags against path tags: %s', path_tags)
-        tags_match = _check_for_matching_tags(repex_tags, path_tags)
-        if tags_match:
-            logger.debug('Matching tag(s) found for path: %s...', path)
-            handle_path(path, repex_vars)
-        else:
-            logger.debug('No matching tags found for path: %s. Skipping...',
-                         path)
+        _process_path(path, repex_tags, repex_vars)
+
+
+def _process_path(path, repex_tags, repex_vars):
+    path_tags = path.get('tags', [])
+    logger.debug('Checking chosen tags against path tags: %s', path_tags)
+    tags_match = _check_for_matching_tags(repex_tags, path_tags)
+    if tags_match:
+        logger.debug('Matching tag(s) found for path: %s...', path)
+        handle_path(path, repex_vars)
+    else:
+        logger.debug('No matching tags found for path: %s. Skipping...',
+                     path)
 
 
 def handle_path(pathobj, variables=None):
@@ -567,7 +574,10 @@ def _validate_config_schema(config):
         "additionalProperties": False
     }
     logger.info('Validating configuration...')
-    jsonschema.validate(config, schema)
+    try:
+        jsonschema.validate(config, schema)
+    except jsonschema.exceptions.ValidationError as ex:
+        raise RepexError(ex)
 
 
 class RepexError(Exception):
@@ -592,8 +602,8 @@ class MutuallyExclusiveOption(click.Option):
         if self.mutually_exclusive:
             help_text = kwargs.get('help', '')
             kwargs['help'] = (
-                '{0}. This argument is mutually exclusive with '
-                'arguments: [{1}]'.format(help_text, self.mutuality_string))
+                '{0}. Mutually exclusive with: [{1}]'.format(
+                    help_text, self.mutuality_string))
         super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):
@@ -614,44 +624,60 @@ CLICK_CONTEXT_SETTINGS = dict(
 @click.argument('REGEX_PATH', required=False)
 @click.option('-r',
               '--replace',
-              help='A regex string to replace [non-config only]')
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
+              help='A regex string to replace')
 @click.option('-w',
               '--replace-with',
-              help='Non-regex string to replace with [non-config only]')
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
+              help='Non-regex string to replace with')
 @click.option('-m',
               '--match',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               help='Context regex match for `replace`. '
                    'If this is ommited, the context will be the '
-                   'entire content of the file [non-config only]')
+                   'entire content of the file')
 @click.option('-t',
               '--ftype',
               default=None,
               cls=MutuallyExclusiveOption,
-              mutually_exclusive=['to_file'],
+              mutually_exclusive=['config', 'to_file'],
               help='A regex file name to look for. '
                    'Defaults to `None`, which means that '
                    '`PATH_TO_HANDLE` must be a path to a single file '
                    '[non-config only]')
 @click.option('-b',
               '--basedir',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               default=os.getcwd(),
               help='Where to start looking for `path` from. '
-                   'Defaults to the cwd [non-config only]')
+                   'Defaults to the cwd')
 @click.option('-x',
               '--exclude-paths',
               multiple=True,
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               help='Paths to exclude when searching for files to handle. '
-                   'This can be used multiple times [non-config only]')
+                   'This can be used multiple times')
 @click.option('-i',
               '--must-include',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               multiple=True,
               help='Files found must include this string. '
-                   'This can be used multiple times [non-config only]')
+                   'This can be used multiple times')
 @click.option('--validator',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               help='Validator file:function (e.g. validator.py:valid_func '
                    '[non-config only]')
 @click.option('--validator-type',
               default='per_type',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['config'],
               type=click.Choice(['per_file', 'per_type']),
               help='Type of validation to perform. `per_type` will validate '
                    'the last file found while `per_file` will run validation '
@@ -659,46 +685,47 @@ CLICK_CONTEXT_SETTINGS = dict(
                    '[non-config only]')
 @click.option('--to-file',
               cls=MutuallyExclusiveOption,
-              mutually_exclusive=['ftype'],
-              help='File path to write the output to [non-config only]')
+              mutually_exclusive=['config', 'ftype'],
+              help='File path to write the output to')
 @click.option('-c',
               '--config',
-              help='Path to a repex config file [config only]')
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH'],
+              type=click.STRING,
+              help='Path to a repex config file')
 @click.option('--vars-file',
-              help='Path to YAML based vars file [config only]')
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH'],
+              help='Path to YAML based vars file')
 @click.option('--var',
               multiple=True,
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH'],
               help="A variable to pass to Repex. Can be used multiple times. "
-                   "Format should be `'key'='value'` [config only]")
+                   "Format should be `'key'='value'`")
 @click.option('--tag',
               multiple=True,
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH'],
               help='A tag to match with a set of tags in the config. '
-                   'Can be used multiple times [config only]')
+                   'Can be used multiple times')
 @click.option('--validate/--no-validate',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH', 'validate_only'],
               default=True,
-              help='Validate the config (defaults to True) [config only]')
+              help='Validate the config (defaults to True)')
+@click.option('--validate-only',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['REGEX_PATH', 'validate'],
+              default=False,
+              is_flag=True,
+              help='Only validate, no run (defaults to False)')
 @click.option('-v',
               '--verbose',
               default=False,
               is_flag=True,
               help='Show verbose output')
-def main(ftype,
-         regex_path,
-         basedir,
-         match,
-         replace,
-         replace_with,
-         exclude_paths,
-         must_include,
-         validator,
-         validator_type,
-         to_file,
-         config,
-         vars_file,
-         var,
-         tag,
-         validate,
-         verbose):
+def main(verbose, **kwargs):
     """Replace strings in one or multiple files.
 
     You must either provide `REGEX_PATH` or use the `-c` flag
@@ -708,48 +735,53 @@ def main(ftype,
     a path to a single directory under `basedir`,
     or a path to a single file.
 
-    It's important to note that if the `PATH_TO_HANDLE` is a path to a
+    It's important to note that if the `REGEX_PATH` is a path to a
     directory, the `-t,--ftype` flag must be provided.
     """
-    if verbose:
-        set_verbose()
-
-    if not config and not regex_path:
+    config = kwargs['config']
+    if not config and not kwargs['regex_path']:
         click.echo('Must either provide a path or a viable repex config file.')
         sys.exit(1)
 
+    if verbose:
+        set_verbose()
+
     if config:
-        repex_vars = _build_vars_dict(vars_file, var)
+        repex_vars = _build_vars_dict(kwargs['vars_file'], kwargs['var'])
         try:
             iterate(
                 config_file_path=config,
                 variables=repex_vars,
-                tags=list(tag),
-                validate=validate)
+                tags=list(kwargs['tag']),
+                validate=kwargs['validate'],
+                validate_only=kwargs['validate_only'])
         except (RepexError, IOError) as ex:
             sys.exit(str(ex))
     else:
-        regex_to_replace = r'{0}'.format(replace)
-        regex_path = r'{0}'.format(regex_path)
+        regex_to_replace = r'{0}'.format(kwargs['replace'])
+        regex_path = r'{0}'.format(kwargs['regex_path'])
         # TODO: change ftype argument name
+        ftype = kwargs['ftype']
+        match = kwargs['match']
         regex_filename = r'{0}'.format(ftype) if ftype else None
-        regex_to_match = r'{0}'.format(match) if match else replace
+        regex_to_match = r'{0}'.format(match) if match else kwargs['replace']
 
         pathobj = {
             'type': regex_filename,
             'path': regex_path,
-            'to_file': to_file,
-            'base_directory': basedir,
+            'to_file': kwargs['to_file'],
+            'base_directory': kwargs['basedir'],
             'match': regex_to_match,
             'replace': regex_to_replace,
-            'with': replace_with,
-            'excluded': list(exclude_paths),
-            'must_include': list(must_include)
+            'with': kwargs['replace_with'],
+            'excluded': list(kwargs['exclude_paths']),
+            'must_include': list(kwargs['must_include'])
         }
+        validator = kwargs['validator']
         if validator:
             validator_path, validator_function = validator.split(':')
             pathobj['validator'] = {
-                'type': validator_type,
+                'type': kwargs['validator_type'],
                 'path': validator_path,
                 'function': validator_function
             }

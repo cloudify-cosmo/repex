@@ -46,7 +46,7 @@ ERRORS = {
 }
 
 
-REPEX_VAR_PREFIX = 'REPEX_VAR_'
+_REPEX_VAR_PREFIX = 'REPEX_VAR_'
 
 
 def setup_logger():
@@ -66,7 +66,7 @@ def set_verbose():
     logger.setLevel(logging.DEBUG)
 
 
-def _import_config_file(config_file_path):
+def _import_yaml(config_file_path):
     """Return a configuration object
     """
     try:
@@ -85,14 +85,14 @@ def _get_config(config_file_path=None, config=None):
         raise RepexError(ERRORS['no_config_supplied'])
 
     if config_file_path:
-        config = _import_config_file(config_file_path)
+        config = _import_yaml(config_file_path)
 
     config = config or {}
     config['variables'] = config.get('variables', {})
     return config
 
 
-def _set_excluded_paths(base_dir, excluded_paths):
+def _normalize_excluded_paths(base_dir, excluded_paths):
     excluded_paths = excluded_paths or []
     excluded_paths = [os.path.join(base_dir, excluded_path).rstrip('/')
                       for excluded_path in excluded_paths]
@@ -114,11 +114,11 @@ def _set_match_parameters(filename,
     return is_file, matched, excluded_filename, excluded_path
 
 
-def get_all_files(filename_regex,
-                  path,
-                  base_dir,
-                  excluded_paths=None,
-                  excluded_filename_regex=None):
+def _get_all_files(filename_regex,
+                   path,
+                   base_dir,
+                   excluded_paths=None,
+                   excluded_filename_regex=None):
     """Get all files for processing.
 
     This starts iterating from `base_dir` and checks for all files
@@ -131,17 +131,16 @@ def get_all_files(filename_regex,
     def replace_backslashes(string):
         return string.replace('\\', '/')
 
-    excluded_paths = _set_excluded_paths(base_dir, excluded_paths)
+    excluded_paths = _normalize_excluded_paths(base_dir, excluded_paths)
     if excluded_paths:
-        logger.info('Excluded paths: %s', excluded_paths)
+        logger.info('Excluding paths: %s', excluded_paths)
 
-    logger.info('Looking for %s under %s in %s...',
-                filename_regex, path, base_dir)
+    logger.info('Looking for %s under %s...',
+                filename_regex, os.path.join(base_dir, path))
     if excluded_filename_regex:
-        logger.info('Excluding all files named: %s', excluded_filename_regex)
+        logger.info('Excluding file names: %s', excluded_filename_regex)
 
-    path = replace_backslashes(path)
-    path_expression = re.compile(path)
+    path_expression = re.compile(replace_backslashes(path))
 
     target_files = []
 
@@ -165,7 +164,7 @@ def get_all_files(filename_regex,
     return target_files
 
 
-class Validator(object):
+class _Validator(object):
     def __init__(self, validator_config):
         self.validation_type = validator_config.get('type', 'per_file')
         self.validator_path = validator_config.get('path')
@@ -181,6 +180,8 @@ class Validator(object):
                     file_to_validate,
                     self.validator_path,
                     self.validation_function)
+        # TODO: self.validation_function might be a variable, not a function.
+        # We should try here.
         validated = getattr(validator, self.validation_function)(
             file_to_validate, logger)
         if validated:
@@ -199,15 +200,26 @@ class Validator(object):
             os.path.basename(self.validator_path), self.validator_path)
 
 
-class VariablesHandler(object):
+class _VariablesHandler(object):
     """Handle variable expansion and replacement
+
+    For every field in a path object, look for {{ .\.+ }}.
+    For every result, try to replace it with one of the variable values
+    supplied.
+    If, eventually, there are still {{ .\.+ }} in the field, raise.
     """
 
-    def expand(self, repex_vars, attributes):
-        r"""Receive a dict of variables and a dict of attributes
-        and iterates through them to expand a variable in an attribute
+    _variable_string_expression = re.compile(r'{{ \..+? }}')
 
-        attributes:
+    def expand(self, repex_vars, fields):
+        r"""Receive a dict of variables and a dict of fields
+        and iterates through them to expand a variable in an field, then
+        returns the fields dict with its variables expanded.
+
+        This will fail if not all variables expand (due to not providing
+        all necessary ones).
+
+        fields:
 
         type: VERSION
         path: resources
@@ -218,77 +230,88 @@ class VariablesHandler(object):
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?
         with: "{{ .version }}"
         must_include:
-            - date
-            - commit
+            - {{ .my_var }}/{{ .another_var }}
+            - {{ .my_other_var }}
             - version
+        validator:
+            type: per_file
+            path: {{ .my_validator_path }}
+            function: validate
 
         variables:
 
         {
             'version': 3,
             'base_dir': .
+            ...
         }
 
         :param dict vars: dict of variables
-        :param dict attributes: dict of attributes as shown above.
+        :param dict fields: dict of fields as shown above.
         """
         logger.debug('Expanding variables...')
-        for var, value in repex_vars.items():
-            for key in attributes.keys():
-                attribute = attributes[key]
-                if isinstance(attribute, str):
-                    # TODO: Handle cases where var is referenced
-                    # TODO: but not defined
-                    attributes[key] = \
-                        self._expand_var(var, value, attribute)
-                elif isinstance(attribute, dict):
-                    for k, v in attribute.items():
-                        attributes[key][k] = \
-                            self._expand_var(var, value, v)
-                elif isinstance(attribute, list):
-                    for item in attribute:
-                        index = attribute.index(item)
-                        attributes[key][index] = \
-                            self._expand_var(var, value, item)
-        return attributes
 
-    def _expand_var(self, variable, value, in_string):
+        unexpanded_instances = set()
+
+        for key in fields.keys():
+            field = fields[key]
+            if isinstance(field, str):
+                fields[key] = self._expand_var(field, repex_vars)
+                instances = self._get_instances(fields[key])
+                unexpanded_instances.update(instances)
+            elif isinstance(field, dict):
+                for k, v in field.items():
+                    fields[key][k] = self._expand_var(v, repex_vars)
+                    instances = self._get_instances(fields[key][k])
+                    unexpanded_instances.update(instances)
+            elif isinstance(field, list):
+                for index, item in enumerate(field):
+                    fields[key][index] = self._expand_var(item, repex_vars)
+                    instances = self._get_instances(fields[key][index])
+                    unexpanded_instances.update(instances)
+
+        if unexpanded_instances:
+            raise RepexError(
+                'Variables failed to expand: {0}\n'
+                'Please make sure to provide all necessary variables '.format(
+                    ', '.join(unexpanded_instances)))
+
+        return fields
+
+    @staticmethod
+    def _get_variable_string(variable):
+        return '{{ ' + '.{0}'.format(variable) + ' }}'
+
+    def _get_instances(self, string):
+        return re.findall(self._variable_string_expression, string)
+
+    def _expand_var(self, in_string, available_variables):
         """Expand variable to its corresponding value in_string
 
         :param string variable: variable name
         :param value: value to replace with
         :param string in_string: the string to replace in
         """
-        var_string = '{{ ' + '.{0}'.format(variable) + ' }}'
-
-        if re.search(var_string, in_string):
-            logger.debug('Expanding var %s to %s in %s',
-                         variable, value, in_string)
-            expanded_variable = re.sub(var_string, str(value), in_string)
-            if not self._check_if_expanded(var_string, expanded_variable):
-                raise RepexError(ERRORS['string_failed_to_expand'])
-            return expanded_variable
+        instances = self._get_instances(in_string)
+        for instance in instances:
+            for name, value in available_variables.items():
+                variable_string = self._get_variable_string(name)
+                if instance == variable_string:
+                    in_string = in_string.replace(variable_string, value)
         return in_string
 
-    @staticmethod
-    def _check_if_expanded(var_string, expanded_variable):
-        logger.debug('Verifying that string %s expanded', expanded_variable)
-        if re.search(var_string, expanded_variable):
-            return False
-        return True
 
-
-def _set_variables(vars_from_config, variables):
+def _merge_variables(vars_from_config, variables):
     repex_vars = {}
     repex_vars.update(vars_from_config)
     repex_vars.update(variables)
     for var, value in os.environ.items():
-        if var.startswith(REPEX_VAR_PREFIX):
-            repex_vars[var.replace(REPEX_VAR_PREFIX, '').lower()] = value
+        if var.startswith(_REPEX_VAR_PREFIX):
+            repex_vars[var.replace(_REPEX_VAR_PREFIX, '').lower()] = value
     return repex_vars
 
 
-def _check_for_matching_tags(repex_tags, path_tags):
+def _match_tags(repex_tags, path_tags):
     """Check for matching tags between what the user provided
     and the tags set in the config.
 
@@ -331,20 +354,18 @@ def iterate(config_file_path=None,
         logger.info('Config file validation completed successfully!')
         sys.exit(0)
 
-    repex_paths = config['paths']
-    vars_from_config = config['variables']
-    repex_vars = _set_variables(vars_from_config, variables or {})
+    repex_vars = _merge_variables(config['variables'], variables or {})
     repex_tags = tags or []
     logger.debug('Chosen tags: %s', repex_tags)
 
-    for path in repex_paths:
+    for path in config['paths']:
         _process_path(path, repex_tags, repex_vars)
 
 
 def _process_path(path, repex_tags, repex_vars):
     path_tags = path.get('tags', [])
-    logger.debug('Checking chosen tags against path tags: %s', path_tags)
-    tags_match = _check_for_matching_tags(repex_tags, path_tags)
+    logger.debug('Checking for matching tags: %s', path_tags)
+    tags_match = _match_tags(repex_tags, path_tags)
     if tags_match:
         logger.debug('Matching tag(s) found for path: %s...', path)
         handle_path(path, repex_vars)
@@ -364,7 +385,7 @@ def handle_path(pathobj, variables=None):
 
     variables = variables or {}
     if variables:
-        variable_expander = VariablesHandler()
+        variable_expander = _VariablesHandler()
         pathobj = variable_expander.expand(variables, pathobj)
     pathobj['base_directory'] = pathobj.get('base_directory', os.getcwd())
     logger.debug('Path to process: %s', os.path.join(
@@ -374,7 +395,7 @@ def handle_path(pathobj, variables=None):
     validate = 'validator' in pathobj
     if validate:
         validator_config = pathobj['validator']
-        validator = Validator(validator_config)
+        validator = _Validator(validator_config)
         validator_type = validator_config.get('type', 'per_type')
 
     rpx = Repex(
@@ -403,7 +424,7 @@ def handle_path(pathobj, variables=None):
         if pathobj.get('to_file'):
             raise RepexError(ERRORS['to_file_requires_explicit_path'])
 
-        files = get_all_files(
+        files = _get_all_files(
             pathobj['type'],
             pathobj['path'],
             pathobj['base_directory'],
@@ -585,6 +606,10 @@ class RepexError(Exception):
 
 
 def _build_vars_dict(vars_file='', variables=None):
+    """Merge variables into a single dictionary
+
+    Applies to CLI provided variables only
+    """
     repex_vars = {}
     if vars_file:
         with open(vars_file) as varsfile:
@@ -595,7 +620,7 @@ def _build_vars_dict(vars_file='', variables=None):
     return repex_vars
 
 
-class MutuallyExclusiveOption(click.Option):
+class _MutuallyExclusiveOption(click.Option):
     def __init__(self, *args, **kwargs):
         self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
         self.mutuality_string = ', '.join(self.mutually_exclusive)
@@ -604,14 +629,14 @@ class MutuallyExclusiveOption(click.Option):
             kwargs['help'] = (
                 '{0}. Mutually exclusive with: [{1}]'.format(
                     help_text, self.mutuality_string))
-        super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
+        super(_MutuallyExclusiveOption, self).__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):
         if self.mutually_exclusive.intersection(opts) and self.name in opts:
             raise click.UsageError(
                 "Illegal usage: `{0}` is mutually exclusive with "
                 "arguments `{1}`.".format(self.name, self.mutuality_string))
-        return super(MutuallyExclusiveOption, self).handle_parse_result(
+        return super(_MutuallyExclusiveOption, self).handle_parse_result(
             ctx, opts, args)
 
 
@@ -624,17 +649,17 @@ CLICK_CONTEXT_SETTINGS = dict(
 @click.argument('REGEX_PATH', required=False)
 @click.option('-r',
               '--replace',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               help='A regex string to replace')
 @click.option('-w',
               '--replace-with',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               help='Non-regex string to replace with')
 @click.option('-m',
               '--match',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               help='Context regex match for `replace`. '
                    'If this is ommited, the context will be the '
@@ -642,7 +667,7 @@ CLICK_CONTEXT_SETTINGS = dict(
 @click.option('-t',
               '--ftype',
               default=None,
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config', 'to_file'],
               help='A regex file name to look for. '
                    'Defaults to `None`, which means that '
@@ -650,7 +675,7 @@ CLICK_CONTEXT_SETTINGS = dict(
                    '[non-config only]')
 @click.option('-b',
               '--basedir',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               default=os.getcwd(),
               help='Where to start looking for `path` from. '
@@ -658,25 +683,25 @@ CLICK_CONTEXT_SETTINGS = dict(
 @click.option('-x',
               '--exclude-paths',
               multiple=True,
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               help='Paths to exclude when searching for files to handle. '
                    'This can be used multiple times')
 @click.option('-i',
               '--must-include',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               multiple=True,
               help='Files found must include this string. '
                    'This can be used multiple times')
 @click.option('--validator',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               help='Validator file:function (e.g. validator.py:valid_func '
                    '[non-config only]')
 @click.option('--validator-type',
               default='per_type',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config'],
               type=click.Choice(['per_file', 'per_type']),
               help='Type of validation to perform. `per_type` will validate '
@@ -684,38 +709,38 @@ CLICK_CONTEXT_SETTINGS = dict(
                    'for each file found. Defaults to `per_type` '
                    '[non-config only]')
 @click.option('--to-file',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['config', 'ftype'],
               help='File path to write the output to')
 @click.option('-c',
               '--config',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH'],
               type=click.STRING,
               help='Path to a repex config file')
 @click.option('--vars-file',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH'],
               help='Path to YAML based vars file')
 @click.option('--var',
               multiple=True,
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH'],
               help="A variable to pass to Repex. Can be used multiple times. "
                    "Format should be `'key'='value'`")
 @click.option('--tag',
               multiple=True,
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH'],
               help='A tag to match with a set of tags in the config. '
                    'Can be used multiple times')
 @click.option('--validate/--no-validate',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH', 'validate_only'],
               default=True,
               help='Validate the config (defaults to True)')
 @click.option('--validate-only',
-              cls=MutuallyExclusiveOption,
+              cls=_MutuallyExclusiveOption,
               mutually_exclusive=['REGEX_PATH', 'validate'],
               default=False,
               is_flag=True,

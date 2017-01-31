@@ -278,7 +278,7 @@ class _VariablesHandler(object):
             raise RepexError(
                 'Variables failed to expand: {0}\n'
                 'Please make sure to provide all necessary variables '.format(
-                    ', '.join(unexpanded_instances)))
+                    list(unexpanded_instances)))
 
         return fields
 
@@ -503,9 +503,8 @@ def handle_path(pathobj, variables=None, diff=False):
                 pathobj.get('description'))
 
     variables = variables or {}
-    if variables:
-        variable_expander = _VariablesHandler()
-        pathobj = variable_expander.expand(variables, pathobj)
+    variable_expander = _VariablesHandler()
+    pathobj = variable_expander.expand(variables, pathobj)
 
     pathobj = _set_path_defaults(pathobj)
 

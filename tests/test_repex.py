@@ -100,6 +100,14 @@ class TestDiff():
                 config_file_path=MOCK_SINGLE_FILE,
                 variables=variables)
 
+    def test_no_changes(self):
+        variables = {'version': '3.1.0-m2'}
+        repex.iterate(
+            config_file_path=MOCK_SINGLE_FILE,
+            variables=variables,
+            with_diff=True)
+        assert not os.path.exists(repex._REPEX_DIFF_HOME)
+
 
 class TestIterate():
     def setup_method(self, test_method):

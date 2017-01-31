@@ -881,13 +881,13 @@ def main(verbose, **kwargs):
                 validate=kwargs['validate'],
                 validate_only=kwargs['validate_only'],
                 with_diff=kwargs['diff'])
-        except (RepexError, IOError) as ex:
+        except (RepexError, IOError, OSError) as ex:
             sys.exit(str(ex))
     else:
         pathobj = _construct_path_object(**kwargs)
         try:
             handle_path(pathobj)
-        except (RepexError, IOError) as ex:
+        except (RepexError, IOError, OSError) as ex:
             sys.exit(str(ex))
 
 

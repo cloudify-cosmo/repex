@@ -393,7 +393,8 @@ def _get_file_contents(path):
 
 
 def _set_diff_file_path(path):
-    return os.path.join(_REPEX_DIFF_HOME, 'diff-{0}'.format(path))
+    return os.path.join(_REPEX_DIFF_HOME, 'diff-{0}'.format(
+        _get_current_time()))
 
 
 def _normalize_diff_path(path):

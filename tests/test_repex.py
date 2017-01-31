@@ -50,13 +50,13 @@ def _invoke(params=None):
     return rpx.invoke(getattr(repex, 'main'), params)
 
 
-class TestBase:
+class TestBase():
     def test_invoke_main(self):
         result = _invoke()
         assert 'Must either provide a path or a' in result.output
 
 
-class TestIterate:
+class TestIterate():
     def setup_method(self, test_method):
         self.version_files = []
         for root, _, files in os.walk(MULTIPLE_DIR):
@@ -180,7 +180,7 @@ class TestIterate:
         assert repex.ERRORS['variables_not_dict'] in str(ex)
 
 
-class TestPathHandler:
+class TestPathHandler():
     @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
     def test_file_no_permissions_to_write_to_file(self):
         path_object = {
@@ -321,9 +321,7 @@ class TestValidator():
         variables = {'version': '3.1.0-m3'}
 
         try:
-            repex.iterate(
-                config=self.validation_config,
-                variables=variables)
+            repex.iterate(config=self.validation_config, variables=variables)
         finally:
             os.remove(self.single_file_output_file)
 

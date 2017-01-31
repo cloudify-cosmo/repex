@@ -576,7 +576,7 @@ class Repex(object):
         if matches:
             self._write_final_content(content, output_file_path)
         else:
-            os.remove(output_file_path + '.tmp')
+            os.remove(output_file_path + '.repex.tmp')
         return output_file_path
 
     def validate_before(self, content, file_to_handle):
@@ -623,25 +623,21 @@ class Repex(object):
         return new_content
 
     def _init_file(self, file_to_handle):
-        temp_file_path = file_to_handle + '.tmp'
+        temp_file_path = file_to_handle + '.repex.tmp'
         output_file_path = self.to_file if self.to_file else file_to_handle
         if not self.to_file:
             shutil.copy2(output_file_path, temp_file_path)
         return output_file_path
 
     def _write_final_content(self, content, output_file_path):
-        temp_file_path = output_file_path + '.tmp'
+        temp_file_path = output_file_path + '.repex.tmp'
         if self.to_file:
             logger.info('Writing output to %s...', output_file_path)
         else:
             logger.debug('Writing output to %s...', output_file_path)
         with open(temp_file_path, "w") as temp_file:
             temp_file.write(content)
-        try:
-            shutil.move(temp_file_path, output_file_path)
-        finally:
-            if os.path.isfile(temp_file_path):
-                os.remove(temp_file_path)
+        shutil.move(temp_file_path, output_file_path)
 
 
 def _validate_config_schema(config):

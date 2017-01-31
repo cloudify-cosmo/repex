@@ -56,6 +56,12 @@ class TestBase():
         result = _invoke()
         assert 'Must either provide a path or a' in result.output
 
+    def test_no_matches(self):
+        fd, temp_file = tempfile.mkstemp()
+        os.close(fd)
+        result = _invoke([temp_file, '-r', 'something', '-w', 'somethingelse'])
+        assert result.exit_code == 0
+
 
 class TestDiff():
     def setup_method(self, test_method):
@@ -365,29 +371,33 @@ class TestValidator():
 
     def setup_method(self, test_method):
         self.single_file_config = repex._get_config(MOCK_SINGLE_FILE)
-        self.validation_config = repex._get_config(MOCK_FILES_WITH_VALIDATOR)
+        self.with_validator_config = repex._get_config(
+            MOCK_FILES_WITH_VALIDATOR)
         self.single_file_output_file = \
             self.single_file_config['paths'][0]['to_file']
-        self.validator_config = self.validation_config['paths'][0]['validator']
+        self.validator_config = \
+            self.with_validator_config['paths'][0]['validator']
 
     def test_validator(self):
         variables = {'version': '3.1.0-m3'}
 
         try:
-            repex.iterate(config=self.validation_config, variables=variables)
+            repex.iterate(
+                config=self.with_validator_config,
+                variables=variables)
         finally:
             os.remove(self.single_file_output_file)
 
     def test_failed_validator_per_file(self):
         variables = {'version': '3.1.0-m3'}
 
-        self.validation_config['paths'][0]['validator']['function'] = \
+        self.with_validator_config['paths'][0]['validator']['function'] = \
             'fail_validate'
 
         try:
             with pytest.raises(repex.RepexError) as ex:
                 repex.iterate(
-                    config=self.validation_config,
+                    config=self.with_validator_config,
                     variables=variables)
             assert repex.ERRORS['validation_failed'] in str(ex)
 
@@ -404,7 +414,7 @@ class TestValidator():
     def test_invalid_validator_type(self):
         self.validator_config.update({'type': 'bad_type'})
         with pytest.raises(repex.RepexError) as ex:
-            repex.iterate(config=self.validation_config)
+            repex.iterate(config=self.with_validator_config)
         assert "bad_type' is not one of ['per_type', 'per_file']" in str(ex)
 
     def test_validator_path_not_found(self):

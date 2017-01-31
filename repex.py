@@ -50,6 +50,7 @@ ERRORS = {
 
 
 _REPEX_VAR_PREFIX = 'REPEX_VAR_'
+_REPEX_DIFF_HOME = os.path.join(os.getcwd(), '.rpx')
 
 
 def setup_logger():
@@ -391,20 +392,27 @@ def _get_file_contents(path):
         return before_modification.readlines()
 
 
+def _set_diff_file_path(path):
+    return os.path.join(_REPEX_DIFF_HOME, 'diff-{0}'.format(path))
+
+
+def _normalize_diff_path(path):
+    path = path.replace('/', '.')
+    path = path.replace('\\', '.')
+    return path
+
+
 def _write_diff(pre, post, output_file_path, leading_path):
     diff = difflib.unified_diff(pre, post)
     items = [line for line in diff]
     line_num = len(str(len(items)))
 
-    leading_path = leading_path.replace('/', '.')
-    leading_path = leading_path.replace('\\', '.')
-    rpx_dir = os.path.join(os.getcwd(), '.rpx')
-    if not os.path.isdir(rpx_dir):
-        os.makedirs(rpx_dir)
-    rpx_diff_file_path = os.path.join(rpx_dir, 'diff-{0}'.format(leading_path))
+    leading_path = _normalize_diff_path(leading_path)
+    if not os.path.isdir(_REPEX_DIFF_HOME) and items:
+        os.makedirs(_REPEX_DIFF_HOME)
 
     if items:
-        with open(rpx_diff_file_path, 'a+') as diff_log:
+        with open(_set_diff_file_path(leading_path), 'a+') as diff_log:
             diff_log.write(_get_current_time() + ' ' + output_file_path)
             diff_log.write('\n')
             for index, line in enumerate(items):

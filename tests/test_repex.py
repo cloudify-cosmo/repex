@@ -15,6 +15,7 @@
 
 import os
 import shlex
+import shutil
 import tempfile
 
 import pytest
@@ -54,6 +55,58 @@ class TestBase():
     def test_invoke_main(self):
         result = _invoke()
         assert 'Must either provide a path or a' in result.output
+
+
+class TestDiff():
+    def setup_method(self, test_method):
+        self.original_repex_diff_home = repex._REPEX_DIFF_HOME
+        repex._REPEX_DIFF_HOME = tempfile.mkdtemp()
+        shutil.rmtree(repex._REPEX_DIFF_HOME, ignore_errors=True)
+
+    def teardown_method(self, test_method):
+        repex._REPEX_DIFF_HOME = self.original_repex_diff_home
+
+    def _test(self):
+        pass
+
+    def test_iterate(self):
+        try:
+            _invoke("-c {0} --diff --var version=3.1.0-m3".format(
+                MOCK_MULTIPLE_FILES))
+            # This is enough for now. If the validation succeeded, we would
+            # expect it to raise an exception, which happens in other
+            config = repex._get_config(MOCK_MULTIPLE_FILES)
+            diff_file_path = repex._set_diff_file_path(
+                repex._normalize_diff_path(config['paths'][0]['path']))
+            with open(diff_file_path) as diff_file:
+                diff_content = diff_file.read()
+            assert '6  -  "version": "3.1.0-m2",' in diff_content
+            assert '7  +  "version": "3.1.0-m3",' in diff_content
+        finally:
+            _invoke("-c {0} --var version=3.1.0-m2".format(
+                MOCK_MULTIPLE_FILES))
+
+    def test_single_file(self):
+        variables = {'version': '3.1.0-m3'}
+
+        try:
+            repex.iterate(
+                config_file_path=MOCK_SINGLE_FILE,
+                variables=variables,
+                with_diff=True)
+
+            config = repex._get_config(MOCK_SINGLE_FILE)
+            diff_file_path = repex._set_diff_file_path(
+                repex._normalize_diff_path(config['paths'][0]['path']))
+            with open(diff_file_path) as diff_file:
+                diff_content = diff_file.read()
+            assert '6  -  "version": "3.1.0-m2",' in diff_content
+            assert '7  +  "version": "3.1.0-m3",' in diff_content
+        finally:
+            variables = {'version': '3.1.0-m2'}
+            repex.iterate(
+                config_file_path=MOCK_SINGLE_FILE,
+                variables=variables)
 
 
 class TestIterate():
@@ -558,7 +611,7 @@ class TestVariableExpansion():
         variable_expander = repex._VariablesHandler()
         with pytest.raises(repex.RepexError) as ex:
             variable_expander.expand(variables, attributes)
-        assert 'Variables failed to expand: {{ .some_var }}' in str(ex)
+        assert "Variables failed to expand: ['{{ .some_var }}']" in str(ex)
 
 
 class TestGetAllFiles():

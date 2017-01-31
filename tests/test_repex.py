@@ -66,22 +66,20 @@ class TestDiff():
     def teardown_method(self, test_method):
         repex._REPEX_DIFF_HOME = self.original_repex_diff_home
 
-    def _test(self):
-        pass
+    def _test(self, config_file):
+        config = repex._get_config(config_file)
+        diff_file_path = repex._set_diff_file_path(
+            repex._normalize_diff_path(config['paths'][0]['path']))
+        with open(diff_file_path) as diff_file:
+            diff_content = diff_file.read()
+        assert '6  -  "version": "3.1.0-m2",' in diff_content
+        assert '7  +  "version": "3.1.0-m3",' in diff_content
 
     def test_iterate(self):
         try:
             _invoke("-c {0} --diff --var version=3.1.0-m3".format(
                 MOCK_MULTIPLE_FILES))
-            # This is enough for now. If the validation succeeded, we would
-            # expect it to raise an exception, which happens in other
-            config = repex._get_config(MOCK_MULTIPLE_FILES)
-            diff_file_path = repex._set_diff_file_path(
-                repex._normalize_diff_path(config['paths'][0]['path']))
-            with open(diff_file_path) as diff_file:
-                diff_content = diff_file.read()
-            assert '6  -  "version": "3.1.0-m2",' in diff_content
-            assert '7  +  "version": "3.1.0-m3",' in diff_content
+            self._test(MOCK_MULTIPLE_FILES)
         finally:
             _invoke("-c {0} --var version=3.1.0-m2".format(
                 MOCK_MULTIPLE_FILES))
@@ -95,13 +93,7 @@ class TestDiff():
                 variables=variables,
                 with_diff=True)
 
-            config = repex._get_config(MOCK_SINGLE_FILE)
-            diff_file_path = repex._set_diff_file_path(
-                repex._normalize_diff_path(config['paths'][0]['path']))
-            with open(diff_file_path) as diff_file:
-                diff_content = diff_file.read()
-            assert '6  -  "version": "3.1.0-m2",' in diff_content
-            assert '7  +  "version": "3.1.0-m3",' in diff_content
+            self._test(MOCK_SINGLE_FILE)
         finally:
             variables = {'version': '3.1.0-m2'}
             repex.iterate(

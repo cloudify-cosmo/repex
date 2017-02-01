@@ -15,6 +15,7 @@
 
 import os
 import shlex
+import shutil
 import tempfile
 
 import pytest
@@ -50,13 +51,72 @@ def _invoke(params=None):
     return rpx.invoke(getattr(repex, 'main'), params)
 
 
-class TestBase:
+class TestBase():
     def test_invoke_main(self):
         result = _invoke()
         assert 'Must either provide a path or a' in result.output
 
+    def test_no_matches(self):
+        fd, temp_file = tempfile.mkstemp()
+        os.close(fd)
+        result = _invoke([temp_file, '-r', 'something', '-w', 'somethingelse'])
+        assert result.exit_code == 0
 
-class TestIterate:
+
+class TestDiff():
+    def setup_method(self, test_method):
+        self.original_repex_diff_home = repex._DIFF_FILE_PATH
+        repex._DIFF_HOME = tempfile.mkdtemp()
+        repex._DIFF_FILE_PATH = os.path.join(repex._DIFF_HOME, 'rpx-diff')
+        self.diff_dir = os.path.dirname(repex._DIFF_FILE_PATH)
+        shutil.rmtree(self.diff_dir, ignore_errors=True)
+
+    def teardown_method(self, test_method):
+        repex._DIFF_FILE_PATH = self.original_repex_diff_home
+        shutil.rmtree(self.diff_dir, ignore_errors=True)
+
+    def _test(self):
+        with open(repex._DIFF_FILE_PATH) as diff_file:
+            diff_content = diff_file.read()
+        assert '6  -  "version": "3.1.0-m2",' in diff_content
+        assert '7  +  "version": "3.1.0-m3",' in diff_content
+
+    @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
+    # TODO: Fix for Windows. Fails on file not found
+    def test_iterate(self):
+        try:
+            _invoke("-c {0} --diff --var version=3.1.0-m3".format(
+                MOCK_MULTIPLE_FILES))
+            self._test()
+        finally:
+            _invoke("-c {0} --var version=3.1.0-m2".format(
+                MOCK_MULTIPLE_FILES))
+
+    def test_single_file(self):
+        variables = {'version': '3.1.0-m3'}
+
+        try:
+            repex.iterate(
+                config_file_path=MOCK_SINGLE_FILE,
+                variables=variables,
+                with_diff=True)
+            self._test()
+        finally:
+            variables = {'version': '3.1.0-m2'}
+            repex.iterate(
+                config_file_path=MOCK_SINGLE_FILE,
+                variables=variables)
+
+    def test_no_changes(self):
+        variables = {'version': '3.1.0-m2'}
+        repex.iterate(
+            config_file_path=MOCK_SINGLE_FILE,
+            variables=variables,
+            with_diff=True)
+        assert not os.path.exists(self.diff_dir)
+
+
+class TestIterate():
     def setup_method(self, test_method):
         self.version_files = []
         for root, _, files in os.walk(MULTIPLE_DIR):
@@ -180,7 +240,7 @@ class TestIterate:
         assert repex.ERRORS['variables_not_dict'] in str(ex)
 
 
-class TestPathHandler:
+class TestPathHandler():
     @pytest.mark.skipif(os.name == 'nt', reason='Irrelevant on Windows')
     def test_file_no_permissions_to_write_to_file(self):
         path_object = {
@@ -312,17 +372,19 @@ class TestValidator():
 
     def setup_method(self, test_method):
         self.single_file_config = repex._get_config(MOCK_SINGLE_FILE)
-        self.validation_config = repex._get_config(MOCK_FILES_WITH_VALIDATOR)
+        self.with_validator_config = repex._get_config(
+            MOCK_FILES_WITH_VALIDATOR)
         self.single_file_output_file = \
             self.single_file_config['paths'][0]['to_file']
-        self.validator_config = self.validation_config['paths'][0]['validator']
+        self.validator_config = \
+            self.with_validator_config['paths'][0]['validator']
 
     def test_validator(self):
         variables = {'version': '3.1.0-m3'}
 
         try:
             repex.iterate(
-                config=self.validation_config,
+                config=self.with_validator_config,
                 variables=variables)
         finally:
             os.remove(self.single_file_output_file)
@@ -330,13 +392,13 @@ class TestValidator():
     def test_failed_validator_per_file(self):
         variables = {'version': '3.1.0-m3'}
 
-        self.validation_config['paths'][0]['validator']['function'] = \
+        self.with_validator_config['paths'][0]['validator']['function'] = \
             'fail_validate'
 
         try:
             with pytest.raises(repex.RepexError) as ex:
                 repex.iterate(
-                    config=self.validation_config,
+                    config=self.with_validator_config,
                     variables=variables)
             assert repex.ERRORS['validation_failed'] in str(ex)
 
@@ -353,7 +415,7 @@ class TestValidator():
     def test_invalid_validator_type(self):
         self.validator_config.update({'type': 'bad_type'})
         with pytest.raises(repex.RepexError) as ex:
-            repex.iterate(config=self.validation_config)
+            repex.iterate(config=self.with_validator_config)
         assert "bad_type' is not one of ['per_type', 'per_file']" in str(ex)
 
     def test_validator_path_not_found(self):
@@ -560,7 +622,7 @@ class TestVariableExpansion():
         variable_expander = repex._VariablesHandler()
         with pytest.raises(repex.RepexError) as ex:
             variable_expander.expand(variables, attributes)
-        assert 'Variables failed to expand: {{ .some_var }}' in str(ex)
+        assert "Variables failed to expand: ['{{ .some_var }}']" in str(ex)
 
 
 class TestGetAllFiles():

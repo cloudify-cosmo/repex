@@ -17,8 +17,11 @@ import os
 import re
 import sys
 import imp
+import time
 import shutil
 import logging
+import difflib
+from datetime import datetime
 
 import yaml
 import click
@@ -274,7 +277,7 @@ class _VariablesHandler(object):
             raise RepexError(
                 'Variables failed to expand: {0}\n'
                 'Please make sure to provide all necessary variables '.format(
-                    ', '.join(unexpanded_instances)))
+                    list(unexpanded_instances)))
 
         return fields
 
@@ -331,15 +334,17 @@ def iterate(config_file_path=None,
             variables=None,
             tags=None,
             validate=True,
-            validate_only=False):
+            validate_only=False,
+            with_diff=False):
     """Iterate over all paths in `config_file_path`
 
     :param string config_file_path: a path to a repex config file
     :param dict config: a dictionary representing a repex config
     :param dict variables: a dict of variables (can be None)
     :param list tags: a list of tags to check for
-    :param validate: whether to perform schema validation on the config
-    :param validate_only: whether to only perform validation without running
+    :param bool validate: whether to perform schema validation on the config
+    :param bool validate_only: only perform validation without running
+    :param bool with_diff: whether to write a diff of all changes to a file
     """
     # TODO: Check if tags can be a tuple instead of a list
     if not isinstance(variables or {}, dict):
@@ -359,22 +364,132 @@ def iterate(config_file_path=None,
     logger.debug('Chosen tags: %s', repex_tags)
 
     for path in config['paths']:
-        _process_path(path, repex_tags, repex_vars)
+        _process_path(path, repex_tags, repex_vars, with_diff)
 
 
-def _process_path(path, repex_tags, repex_vars):
+def _process_path(path, repex_tags, repex_vars, with_diff):
     path_tags = path.get('tags', [])
     logger.debug('Checking for matching tags: %s', path_tags)
     tags_match = _match_tags(repex_tags, path_tags)
     if tags_match:
         logger.debug('Matching tag(s) found for path: %s...', path)
-        handle_path(path, repex_vars)
+        handle_path(path, repex_vars, with_diff)
     else:
         logger.debug('No matching tags found for path: %s. Skipping...',
                      path)
 
 
-def handle_path(pathobj, variables=None):
+def _get_current_time():
+    """Return a human readable unix timestamp formatted string
+
+    e.g. 2015-06-11 10:10:01
+    """
+    return datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def _get_file_contents(path):
+    with open(path) as open_file:
+        return open_file.readlines()
+
+
+def _normalize_current_time(current_time):
+    timestamp = current_time.replace('-', '')
+    timestamp = timestamp.replace(':', '')
+    timestamp = timestamp.split(' ')
+    return 'T'.join(timestamp)
+
+
+def _write_diff(pre, post, output_file_path):
+    diff = difflib.unified_diff(pre, post)
+    items = [line for line in diff]
+    line_num = len(str(len(items)))
+
+    if not os.path.isdir(_DIFF_HOME) and items:
+        os.makedirs(_DIFF_HOME)
+
+    if items:
+        with open(_DIFF_FILE_PATH, 'a+') as diff_log:
+            diff_log.write(_get_current_time() + ' ' + output_file_path)
+            diff_log.write('\n')
+            for index, line in enumerate(items):
+                diff_log.write('{0:{1}} {2}'.format(
+                    str(index), line_num, line))
+            diff_log.write('\n\n')
+
+
+def _assert_validated(validator, file_to_validate):
+    if not validator.validate(file_to_validate):
+        raise RepexError(ERRORS['validation_failed'])
+
+
+def _handle_single_file(rpx,
+                        path_to_handle,
+                        pathobj,
+                        validate,
+                        diff,
+                        validator=None):
+    if os.path.isfile(path_to_handle):
+        if pathobj.get('diff') or diff:
+            pre = _get_file_contents(path_to_handle)
+            output_file_path = rpx.handle_file(path_to_handle)
+            post = _get_file_contents(output_file_path)
+            _write_diff(pre, post, output_file_path)
+        else:
+            rpx.handle_file(path_to_handle)
+        if validate:
+            _assert_validated(validator, path_to_handle)
+    else:
+        raise RepexError('{0}: {1}'.format(
+            ERRORS['file_not_found'], path_to_handle))
+
+
+def _handle_multiple_files(rpx,
+                           path_to_handle,
+                           pathobj,
+                           validate,
+                           diff,
+                           validator=None,
+                           validator_type=None):
+    if os.path.isfile(path_to_handle):
+        raise RepexError(ERRORS['type_path_collision'])
+    if pathobj.get('to_file'):
+        raise RepexError(ERRORS['to_file_requires_explicit_path'])
+
+    files = _get_all_files(
+        pathobj['type'],
+        pathobj['path'],
+        pathobj['base_directory'],
+        pathobj['excluded']
+    )
+
+    for file_to_handle in files:
+        if pathobj.get('diff') or diff:
+            pre = _get_file_contents(file_to_handle)
+            output_file_path = rpx.handle_file(file_to_handle)
+            post = _get_file_contents(output_file_path)
+            _write_diff(pre, post, output_file_path)
+        else:
+            rpx.handle_file(file_to_handle)
+        if validate and validator_type == 'per_file':
+            _assert_validated(validator, file_to_handle)
+
+    # Need to check that `files` isn't an empty list or `file_to_handle`
+    # will be undefined.
+    if files and file_to_handle and validate and \
+            validator_type == 'per_type':
+        _assert_validated(validator, file_to_handle)
+
+
+def _set_path_defaults(pathobj):
+    pathobj['base_directory'] = pathobj.get('base_directory', os.getcwd())
+    pathobj['match'] = pathobj.get('match', pathobj['replace'])
+    pathobj['to_file'] = pathobj.get('to_file', False)
+    pathobj['must_include'] = pathobj.get('must_include', [])
+    pathobj['excluded'] = pathobj.get('excluded', [])
+    return pathobj
+
+
+def handle_path(pathobj, variables=None, diff=False):
     """Iterate over all chosen files in a path
 
     :param dict pathobj: a dict of a specific path in the config
@@ -384,13 +499,13 @@ def handle_path(pathobj, variables=None):
                 pathobj.get('description'))
 
     variables = variables or {}
-    if variables:
-        variable_expander = _VariablesHandler()
-        pathobj = variable_expander.expand(variables, pathobj)
-    pathobj['base_directory'] = pathobj.get('base_directory', os.getcwd())
-    logger.debug('Path to process: %s', os.path.join(
-        pathobj['base_directory'], pathobj['path']))
+    variable_expander = _VariablesHandler()
+    pathobj = variable_expander.expand(variables, pathobj)
+
+    pathobj = _set_path_defaults(pathobj)
+
     path_to_handle = os.path.join(pathobj['base_directory'], pathobj['path'])
+    logger.debug('Path to process: %s', path_to_handle)
 
     validate = 'validator' in pathobj
     if validate:
@@ -398,66 +513,40 @@ def handle_path(pathobj, variables=None):
         validator = _Validator(validator_config)
         validator_type = validator_config.get('type', 'per_type')
 
-    rpx = Repex(
-        pathobj['match'],
-        pathobj['replace'],
-        pathobj['with'],
-        pathobj.get('to_file', False),
-        pathobj.get('must_include', [])
-    )
-
-    def verify_file_validation(file_to_validate):
-        if not validator.validate(file_to_validate):
-            raise RepexError(ERRORS['validation_failed'])
+    rpx = Repex(pathobj)
 
     if not pathobj.get('type'):
-        if os.path.isfile(path_to_handle):
-            rpx.handle_file(path_to_handle)
-            if validate:
-                verify_file_validation(path_to_handle)
-        else:
-            raise RepexError('{0}: {1}'.format(
-                ERRORS['file_not_found'], path_to_handle))
+        _handle_single_file(
+            rpx=rpx,
+            path_to_handle=path_to_handle,
+            pathobj=pathobj,
+            validate=validate,
+            diff=diff,
+            validator=validator if validate else None)
     else:
-        if os.path.isfile(path_to_handle):
-            raise RepexError(ERRORS['type_path_collision'])
-        if pathobj.get('to_file'):
-            raise RepexError(ERRORS['to_file_requires_explicit_path'])
-
-        files = _get_all_files(
-            pathobj['type'],
-            pathobj['path'],
-            pathobj['base_directory'],
-            pathobj.get('excluded', [])
-        )
-        for file_to_handle in files:
-            rpx.handle_file(file_to_handle)
-            if validate and validator_type == 'per_file':
-                verify_file_validation(file_to_handle)
-
-        # Need to check that `files` isn't an empty list or `file_to_handle`
-        # will be undefined.
-        if files and file_to_handle and validate and \
-                validator_type == 'per_type':
-            verify_file_validation(file_to_handle)
+        _handle_multiple_files(
+            rpx=rpx,
+            path_to_handle=path_to_handle,
+            pathobj=pathobj,
+            validate=validate,
+            diff=diff,
+            validator=validator if validate else None,
+            validator_type=validator_type if validate else None)
 
 
 class Repex(object):
-    def __init__(self,
-                 match_regex,
-                 pattern_to_replace,
-                 replace_with,
-                 to_file=False,
-                 must_include=None):
-        self.match_regex = match_regex
-        self.pattern_to_replace = pattern_to_replace
-        self.match_expression = re.compile('(?P<matchgroup>{0})'.format(
-            match_regex))
-        self.replace_expression = re.compile(pattern_to_replace)
+    def __init__(self, pathobj):
+        # Ideally, we're receive **pathobj instead, but it contains a `with`
+        # key which makes it impossible.
+        self.match_regex = pathobj['match']
+        self.pattern_to_replace = pathobj['replace']
+        self.match_expression = \
+            re.compile('(?P<matchgroup>{0})'.format(pathobj['match']))
+        self.replace_expression = re.compile(self.pattern_to_replace)
 
-        self.replace_with = replace_with
-        self.to_file = to_file
-        self.must_include = must_include or []
+        self.replace_with = pathobj['with']
+        self.to_file = pathobj['to_file']
+        self.must_include = pathobj['must_include']
 
     def handle_file(self, file_to_handle):
         with open(file_to_handle) as f:
@@ -483,7 +572,8 @@ class Repex(object):
         if matches:
             self._write_final_content(content, output_file_path)
         else:
-            os.remove(output_file_path + '.tmp')
+            os.remove(output_file_path + '.repex.tmp')
+        return output_file_path
 
     def validate_before(self, content, file_to_handle):
         """Verify that all required strings are in the file
@@ -529,25 +619,21 @@ class Repex(object):
         return new_content
 
     def _init_file(self, file_to_handle):
-        temp_file_path = file_to_handle + '.tmp'
+        temp_file_path = file_to_handle + '.repex.tmp'
         output_file_path = self.to_file if self.to_file else file_to_handle
         if not self.to_file:
             shutil.copy2(output_file_path, temp_file_path)
         return output_file_path
 
     def _write_final_content(self, content, output_file_path):
-        temp_file_path = output_file_path + '.tmp'
+        temp_file_path = output_file_path + '.repex.tmp'
         if self.to_file:
             logger.info('Writing output to %s...', output_file_path)
         else:
             logger.debug('Writing output to %s...', output_file_path)
         with open(temp_file_path, "w") as temp_file:
             temp_file.write(content)
-        try:
-            shutil.move(temp_file_path, output_file_path)
-        finally:
-            if os.path.isfile(temp_file_path):
-                os.remove(temp_file_path)
+        shutil.move(temp_file_path, output_file_path)
 
 
 def _validate_config_schema(config):
@@ -640,6 +726,10 @@ class _MutuallyExclusiveOption(click.Option):
             ctx, opts, args)
 
 
+_DIFF_HOME = os.path.join(os.getcwd(), '.rpx')
+_NORMALIZED_TIMESTAMP = _normalize_current_time(_get_current_time())
+_DIFF_FILE_PATH = os.path.join(_DIFF_HOME, 'diff-{0}'.format(
+    _NORMALIZED_TIMESTAMP))
 CLICK_CONTEXT_SETTINGS = dict(
     help_option_names=['-h', '--help'],
     token_normalize_func=lambda param: param.lower())
@@ -744,7 +834,12 @@ CLICK_CONTEXT_SETTINGS = dict(
               mutually_exclusive=['REGEX_PATH', 'validate'],
               default=False,
               is_flag=True,
-              help='Only validate, no run (defaults to False)')
+              help='Only validate the config, do not run (defaults to False)')
+@click.option('--diff',
+              default=False,
+              is_flag=True,
+              help='Write the diff to a file under `cwd/.rpx/diff-TIMESTAMP` '
+                   '(defaults to False)')
 @click.option('-v',
               '--verbose',
               default=False,
@@ -764,6 +859,7 @@ def main(verbose, **kwargs):
     directory, the `-t,--ftype` flag must be provided.
     """
     config = kwargs['config']
+
     if not config and not kwargs['regex_path']:
         click.echo('Must either provide a path or a viable repex config file.')
         sys.exit(1)
@@ -779,38 +875,40 @@ def main(verbose, **kwargs):
                 variables=repex_vars,
                 tags=list(kwargs['tag']),
                 validate=kwargs['validate'],
-                validate_only=kwargs['validate_only'])
-        except (RepexError, IOError) as ex:
+                validate_only=kwargs['validate_only'],
+                with_diff=kwargs['diff'])
+        except (RepexError, IOError, OSError) as ex:
             sys.exit(str(ex))
     else:
-        regex_to_replace = r'{0}'.format(kwargs['replace'])
-        regex_path = r'{0}'.format(kwargs['regex_path'])
-        # TODO: change ftype argument name
-        ftype = kwargs['ftype']
-        match = kwargs['match']
-        regex_filename = r'{0}'.format(ftype) if ftype else None
-        regex_to_match = r'{0}'.format(match) if match else kwargs['replace']
-
-        pathobj = {
-            'type': regex_filename,
-            'path': regex_path,
-            'to_file': kwargs['to_file'],
-            'base_directory': kwargs['basedir'],
-            'match': regex_to_match,
-            'replace': regex_to_replace,
-            'with': kwargs['replace_with'],
-            'excluded': list(kwargs['exclude_paths']),
-            'must_include': list(kwargs['must_include'])
-        }
-        validator = kwargs['validator']
-        if validator:
-            validator_path, validator_function = validator.split(':')
-            pathobj['validator'] = {
-                'type': kwargs['validator_type'],
-                'path': validator_path,
-                'function': validator_function
-            }
+        pathobj = _construct_path_object(**kwargs)
         try:
             handle_path(pathobj)
-        except (RepexError, IOError) as ex:
+        except (RepexError, IOError, OSError) as ex:
             sys.exit(str(ex))
+
+
+def _construct_path_object(**kwargs):
+    ftype = kwargs['ftype']
+    match = kwargs['match']
+
+    pathobj = {
+        'type': r'{0}'.format(ftype) if ftype else None,
+        'path': r'{0}'.format(kwargs['regex_path']),
+        'to_file': kwargs['to_file'],
+        'base_directory': kwargs['basedir'],
+        'match': r'{0}'.format(match) if match else kwargs['replace'],
+        'replace': r'{0}'.format(kwargs['replace']),
+        'with': kwargs['replace_with'],
+        'excluded': list(kwargs['exclude_paths']),
+        'must_include': list(kwargs['must_include']),
+        'diff': kwargs['diff']
+    }
+    validator = kwargs['validator']
+    if validator:
+        validator_path, validator_function = validator.split(':')
+        pathobj['validator'] = {
+            'type': kwargs['validator_type'],
+            'path': validator_path,
+            'function': validator_function
+        }
+    return pathobj

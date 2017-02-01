@@ -342,8 +342,9 @@ def iterate(config_file_path=None,
     :param dict config: a dictionary representing a repex config
     :param dict variables: a dict of variables (can be None)
     :param list tags: a list of tags to check for
-    :param validate: whether to perform schema validation on the config
-    :param validate_only: whether to only perform validation without running
+    :param bool validate: whether to perform schema validation on the config
+    :param bool validate_only: only perform validation without running
+    :param bool with_diff: whether to write a diff of all changes to a file
     """
     # TODO: Check if tags can be a tuple instead of a list
     if not isinstance(variables or {}, dict):
@@ -837,7 +838,7 @@ CLICK_CONTEXT_SETTINGS = dict(
 @click.option('--diff',
               default=False,
               is_flag=True,
-              help='Write the diff to a file under `cwd/.rpx/diff-PATH` '
+              help='Write the diff to a file under `cwd/.rpx/diff-TIMESTAMP` '
                    '(defaults to False)')
 @click.option('-v',
               '--verbose',

@@ -19,6 +19,8 @@ NOTE: Beggining with `repex 1.0.0`, Python 3 is officially supported.
 
 NOTE: `repex 1.1.0` has breaking CLI and API changes. See [CHANGES](CHANGES) for more information.
 
+NOTE: `repex 1.2.0` does not allow to set variables in the config without providing them.
+
 `repex` replaces strings in single/multiple files based on regular expressions.
 
 Why not Jinja you ask? Because sometimes you have existing files which are not templated in which you'd like to replace things.. and even if they're in your control, sometimes templates are just not viable if you need something working OOB.
@@ -61,6 +63,8 @@ NOTE: When passing a config file, repex will ignore any options passed which are
 
 ```bash
 $ rpx -h
+...
+
 Usage: rpx [OPTIONS] [REGEX_PATH]
 
   Replace strings in one or multiple files.
@@ -126,11 +130,13 @@ Options:
                                   (defaults to False). Mutually exclusive
                                   with: [validate, REGEX_PATH]
   --diff                          Write the diff to a file under `cwd/.rpx
-                                  /diff-PATH` (defaults to False)
+                                  /diff-TIMESTAMP` (defaults to False)
   -v, --verbose                   Show verbose output
   -h, --help                      Show this message and exit.
 
-  ```
+...
+
+```
 
 
 #### Using repex like sed
@@ -144,10 +150,10 @@ rpx /path/to/my/file --replace 3.3 --rwith 3.4
 Much, much more than sed:
 
 ```bash
-rpx 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 -i blah -i yay! -x check_validity/resources/VERSION -x another/VERSION -v --validator check_validity/resources/validator.py:validate
+rpx 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 -i blah -i yay! -x check_validity/resources/VERSION -x another/VERSION -v --validator check_validity/resources/validator.py:validate --diff
 ```
 
-This will look for all files named "VERSION" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION".
+This will look for all files named "VERSION" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION". A git style diff file will be generated.
 
 Note that you must either escape special chars or use single quotes where applicable, that is, where regex strings are provided and bash expansion takes place.
 
@@ -236,9 +242,12 @@ variables = {
 repex.iterate(
     config_file_path=CONFIG_YAML_FILE,
     config=None,  # config is simply the dict form of the contents of `CONFIG_YAML_FILE`.
-    tags=['my_tag1', 'my_tag2']
+    tags=['my_tag1', 'my_tag2']  # tags to match
     variables=variables,
-    diff=True)
+    validate=True,  # validate config schema
+    validate_only=False,  # only validate config schema without running
+    with_diff=True  # write the diff to a file
+)
 
 ```
 
@@ -271,7 +280,7 @@ Don't forget the spaces!
 - `with` - what you replace with.
 - `must_include` - as an additional layer of security, you can specify a set of regex based strings to look for to make sure that the files you're dealing with are the actual files you'd like to replace the expressions in.
 - `validator` - validator allows you to run a validation function after replacing expressions. It receives `type` which can be either `per_file` or `per_type` where `per_file` runs the validation on every file while `per_type` runs once for every `type` of file; it receives a `path` to the script and a `function` within the script to call. Note that each validation function must return `True` if successful while any other return value will fail the validation. The validating function receives the file's path as and a logger as arguments.
-- `diff` - if `true`, will write a git-like unified diff to a file under `cwd/.rpx/diff-PATH_REGEX`. Note that `PATH_REGEX` can be anything which means that the names of the files will look somewhat weird. The diff will be written for each replacement. See below for an example.
+- `diff` - if `true`, will write a git-like unified diff to a file under `cwd/.rpx/diff-TIMESTAMP`. Note that `PATH_REGEX` can be anything which means that the names of the files will look somewhat weird. The diff will be written for each replacement. See below for an example.
 
 In case you're providing a path to a file rather than a directory:
 
@@ -292,7 +301,7 @@ A user could apply a list of tags to a path and then, executing repex will addre
 
 ## Variables
 
-Variables are one of the strongest features of repex. They provide a way of injecting dynamic info to the config file.
+Variables are one of the strongest features of repex. They provide a way of injecting dynamic info to the config.
 
 Variables can be declared in 4 ways:
 - Provided via the CLI
@@ -309,6 +318,8 @@ Some important facts about variables:
 - Variables with the same name sent via the API will override the hardcoded ones.
 - API provided or hardcoded variables can be overriden if env vars exist with the same name but in upper case and prefixed with `REPEX_VAR_` (so the variable "version" can be overriden by an env var called "REPEX_VAR_VERSION".) This can help with, for example, using the $BUILD_NUMBER env var in Jenkins to update a file with the new build number.
 
+Note that if any variables are required but not provided, repex will fail stating that they must be provided.
+
 ## Diff
 
 NOTE: THIS IS WIP! Use sparingly.
@@ -316,7 +327,7 @@ NOTE: THIS IS WIP! Use sparingly.
 Repex has the ability to write a git-like unified diff for every replacement that occurs. The diff is written to a file under `cwd/.rpx/` and will contain something that looks like the following:
 
 ```text
-$ cat .rpx/diff-multipl\(e\)\? 
+$ cat .rpx/diff-20170119T115322
 ...
 
 2017-01-19 11:53:22 tests/resources/multiple/mock_VERSION
@@ -350,12 +361,10 @@ $ cat .rpx/diff-multipl\(e\)\?
 
 There is currently no way to ask repex to not generate the diff for every file, so take that into consideration when working with a large amount of files.
 
-Diff generation is off by default.
+Diff generation is off by default. Note that other than providing the overriding `--diff` (or `with_diff` in `iterate`) flag, you can set `diff` for each path in the config.
 
 
 ## Testing
-
-NOTE: Running the tests require an internet connection
 
 ```shell
 git clone git@github.com:cloudify-cosmo/repex.git

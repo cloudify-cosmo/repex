@@ -12,7 +12,7 @@ def read(*parts):
 
 setup(
     name='repex',
-    version="1.1.0",
+    version="1.2.0",
     url='https://github.com/cloudify-cosmo/repex',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',

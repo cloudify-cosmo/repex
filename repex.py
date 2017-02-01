@@ -50,7 +50,6 @@ ERRORS = {
 
 
 _REPEX_VAR_PREFIX = 'REPEX_VAR_'
-_REPEX_DIFF_HOME = os.path.join(os.getcwd(), '.rpx')
 
 
 def setup_logger():
@@ -388,32 +387,27 @@ def _get_current_time():
 
 
 def _get_file_contents(path):
-    with open(path) as before_modification:
-        return before_modification.readlines()
+    with open(path) as open_file:
+        return open_file.readlines()
 
 
-def _set_diff_file_path(path):
-    return os.path.join(_REPEX_DIFF_HOME, 'diff-{0}'.format(
-        _get_current_time()))
+def _normalize_current_time(current_time):
+    timestamp = current_time.replace('-', '')
+    timestamp = timestamp.replace(':', '')
+    timestamp = timestamp.split(' ')
+    return 'T'.join(timestamp)
 
 
-def _normalize_diff_path(path):
-    path = path.replace('/', '.')
-    path = path.replace('\\', '.')
-    return path
-
-
-def _write_diff(pre, post, output_file_path, leading_path):
+def _write_diff(pre, post, output_file_path):
     diff = difflib.unified_diff(pre, post)
     items = [line for line in diff]
     line_num = len(str(len(items)))
 
-    leading_path = _normalize_diff_path(leading_path)
-    if not os.path.isdir(_REPEX_DIFF_HOME) and items:
-        os.makedirs(_REPEX_DIFF_HOME)
+    if not os.path.isdir(_DIFF_HOME) and items:
+        os.makedirs(_DIFF_HOME)
 
     if items:
-        with open(_set_diff_file_path(leading_path), 'a+') as diff_log:
+        with open(_DIFF_FILE_PATH, 'a+') as diff_log:
             diff_log.write(_get_current_time() + ' ' + output_file_path)
             diff_log.write('\n')
             for index, line in enumerate(items):
@@ -438,7 +432,7 @@ def _handle_single_file(rpx,
             pre = _get_file_contents(path_to_handle)
             output_file_path = rpx.handle_file(path_to_handle)
             post = _get_file_contents(output_file_path)
-            _write_diff(pre, post, output_file_path, pathobj['path'])
+            _write_diff(pre, post, output_file_path)
         else:
             rpx.handle_file(path_to_handle)
         if validate:
@@ -472,7 +466,7 @@ def _handle_multiple_files(rpx,
             pre = _get_file_contents(file_to_handle)
             output_file_path = rpx.handle_file(file_to_handle)
             post = _get_file_contents(output_file_path)
-            _write_diff(pre, post, output_file_path, pathobj['path'])
+            _write_diff(pre, post, output_file_path)
         else:
             rpx.handle_file(file_to_handle)
         if validate and validator_type == 'per_file':
@@ -731,6 +725,10 @@ class _MutuallyExclusiveOption(click.Option):
             ctx, opts, args)
 
 
+_DIFF_HOME = os.path.join(os.getcwd(), '.rpx')
+_NORMALIZED_TIMESTAMP = _normalize_current_time(_get_current_time())
+_DIFF_FILE_PATH = os.path.join(_DIFF_HOME, 'diff-{0}'.format(
+    _NORMALIZED_TIMESTAMP))
 CLICK_CONTEXT_SETTINGS = dict(
     help_option_names=['-h', '--help'],
     token_normalize_func=lambda param: param.lower())

@@ -1,3 +1,7 @@
+variables:
+    # This also tests that variables are expanded
+    dversion: "{{ .version }}"
+
 paths:
     -   type: mock_VERSION
         path: multipl(e)?
@@ -6,7 +10,7 @@ paths:
         base_directory: tests/resources/
         match: '"version": "\d+\.\d+(\.\d+)?(-\w\d+)?'
         replace: \d+\.\d+(\.\d+)?(-\w\d+)?
-        with: "{{ .version }}"
+        with: "{{ .dversion }}"
         must_include:
             - date
             - commit

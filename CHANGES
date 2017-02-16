@@ -1,3 +1,18 @@
+**1.2.1 (2017.02.16)**
+* (Issue #71) Fix Regression where variables within variables would not expand
+
+
+**1.2.0 (2017.02.01)**
+* (Issue #64) Add `--validate-only` flag to only validate the config without actually doing anything
+* (Issue #31) Add `--diff` flag to generate a git-like diff for each processed file. The file will be created under `cwd/.rpx/...`
+* (Issue #67) Error-out on unexpanded variables
+* Apply mutual exclusivity on all relevant CLI flags
+* Redo VariableHandler
+* More Coverage FTW
+* Make some public functions and classes private
+* Optimize code greatly. I wonder why people write this everytime their release something and expect people to understand what it means.
+
+
 **1.1.0 (2017.01.15)**
 
 NOTE: There are breaking changes in this release

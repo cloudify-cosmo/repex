@@ -128,6 +128,9 @@ class TestIterate():
                                in self.version_files_without_excluded]
 
     def test_iterate_multiple_files(self):
+        # Note that this also tests expanding variables in variables
+        # as the variable declared in the `mock_multiple_files.yaml`
+        # is being expanded itself and then used.
 
         def _test(replaced_value, initial_value):
             for version_file in self.version_files_without_excluded:

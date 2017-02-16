@@ -256,6 +256,17 @@ class _VariablesHandler(object):
 
         unexpanded_instances = set()
 
+        # Expand variables in variables
+        # TODO: This should be done in the global scope.
+        # _VariableHandler is called per path, which makes this redundant
+        # as variables are declared globally per config.
+        for k, v in repex_vars.items():
+            repex_vars[k] = self._expand_var(v, repex_vars)
+            instances = self._get_instances(repex_vars[k])
+            unexpanded_instances.update(instances)
+
+        # TODO: Consolidate variable expansion code into single logic
+        # Expand variables in path objects
         for key in fields.keys():
             field = fields[key]
             if isinstance(field, str):

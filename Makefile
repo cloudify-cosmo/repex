@@ -18,17 +18,13 @@ PACKAGENAME = repex
 .PHONY: help
 help:
 	@echo 'Please use "make <target>" where <target> is one of'
-	@echo "  release   - build a release and publish it"
+	@echo "  build     - build the package"
 	@echo "  dev       - prepare a development environment (includes tests)"
 	@echo "  instdev   - prepare a development environment (no tests)"
 	@echo "  install   - install into current Python environment"
 	@echo "  test      - test from this directory using tox, including test coverage"
 	@echo "  publish   - upload to PyPI"
 	@echo "  clean     - remove any temporary build products"
-
-.PHONY: release
-release: publish
-	@echo "$@ done."
 
 .PHONY: dev
 dev: instdev test
@@ -47,16 +43,21 @@ install:
 
 .PHONY: test
 test:
-	sudo pip install 'tox>=1.7.2'
+	pip install 'tox>=1.7.2'
 	tox
 	@echo "$@ done."
 
 .PHONY: publish
-publish:
-	python setup.py sdist upload
-	@echo "$@ done; uploaded the package to PyPI."
+publish: test clean build
+	# assumes there's a .pypirc config for `cosmo`
+	twine upload -r cosmo dist/$(PACKAGENAME)-*
+	@echo "$@ done."
 
 .PHONY: clean
 clean:
-	rm -rf build $(PACKAGENAME).egg-info
+	rm -rf build dist $(PACKAGENAME).egg-info
 	@echo "$@ done."
+
+.PHONY: build
+build:
+	python setup.py sdist bdist_wheel

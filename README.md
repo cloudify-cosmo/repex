@@ -61,7 +61,7 @@ Repex exposes a CLI which can be used to do one of two things:
 
 NOTE: When passing a config file, repex will ignore any options passed which are not `config-only`.
 
-```bash
+```
 $ rpx -h
 ...
 
@@ -150,10 +150,17 @@ rpx /path/to/my/file --replace 3.3 --rwith 3.4
 Much, much more than sed:
 
 ```bash
-rpx 'check_validity/resources/*' -t VERSION -r '3.3.0-m\d+' -w 2.1.1 -i blah -i yay! -x check_validity/resources/VERSION -x another/VERSION -v --validator check_validity/resources/validator.py:validate --diff
+rpx 'check_validity/resources/.*' 
+    -t VERSION \
+    -r '3.3.0-m\d+' \
+    -w 2.1.1 \
+    -i blah -i yay! \
+    -x check_validity/resources/VERSION -x another/VERSION \
+    --validator check_validity/resources/validator.py:validate \
+    --diff -v
 ```
 
-This will look for all files named "VERSION" under all folders named "check_validity/resources/*"; replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION". A git style diff file will be generated.
+This will look for all files named "VERSION" under all folders named "check_validity/resources/.*" (recursively); replace all strings matching "3.3.0-m\d+" with "2.1.1"; validate using the "validate" function found in "check_validity/resources/validator.py" only if the files found include the strings "blah" and "yay!" excluding specifically the files "check_validity/resources/VERSION" and "another/VERSION". A git style diff file will be generated.
 
 Note that you must either escape special chars or use single quotes where applicable, that is, where regex strings are provided and bash expansion takes place.
 

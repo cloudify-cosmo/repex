@@ -626,7 +626,7 @@ class Repex(object):
         """
         new_string = self.replace_expression.sub(self.replace_with, match)
         logger.info('Replacing: [ %s ] --> [ %s ]', match, new_string)
-        new_content = self.match_expression.sub(new_string, content)
+        new_content = content.replace(match, new_string)
         return new_content
 
     def _init_file(self, file_to_handle):

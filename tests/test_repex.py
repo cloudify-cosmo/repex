@@ -687,3 +687,38 @@ class TestGetAllFiles():
         assert len(mock_yaml_files) == len(files)
         for f in mock_yaml_files:
             assert os.path.join(TEST_RESOURCES_DIR, f) in files
+
+
+class TestMatchReplaceLogic():
+
+    def setup_method(self, test_method):
+        self.config = repex._get_config(
+            os.path.join(TEST_RESOURCES_DIR, 'match_replace_config.yaml'))
+        self.output_file = self.config['paths'][0]['to_file']
+
+    def teardown_method(self, test_method):
+        if os.path.isfile(self.output_file):
+            os.remove(self.output_file)
+
+    def test_that_replacement_is_only_done_within_match(self):
+        """Test that an expression is matched and replacement
+        occurs within it alone.
+
+        See `match_replace_*` files for more info.
+
+        The match should include the three first lines in th file.
+        The replacement could occur in all four lines.
+        Additionally, the match in the first three lines includes
+        everything after the version (-1, -2, -3).
+
+        For this test to pass, we expect that not only the fourth line
+        remains the same, but that the replacement occurs only according
+        to the replacement expression and not the matching expression.
+        """
+        repex.iterate(config=self.config)
+        with open(self.output_file) as f:
+            content = f.read().splitlines()
+        assert '/something-2.9-1' == content[0]
+        assert '/something-2.9-2' == content[1]
+        assert '/something-2.9-3' == content[2]
+        assert '/something_else-1.3.1-1' == content[3]

@@ -1,0 +1,10 @@
+variables:
+    version_expression: \d+(\.\d+){1,2}(\.dev\d+){0,1}
+    desired_version: "2.9"
+
+paths:
+     - path: "tests/resources/match_replace_test.file"
+       match: something-.*
+       to_file: "tests/resources/match_replace_test.output"
+       replace: "{{ .version_expression }}"
+       with: "{{ .desired_version }}"

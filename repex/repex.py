@@ -188,7 +188,7 @@ class VarHandler():
             for attribute in attributes.keys():
                 lgr.debug('Limor - attributes[attribute]: {0}'.format(attributes[attribute]))
                 obj = attributes[attribute]
-                if isinstance(obj, str):
+                if isinstance(obj, basestring):
                     lgr.debug('Limor - isinstance=str')
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined

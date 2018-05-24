@@ -204,7 +204,7 @@ class VarHandler():
                         attributes[attribute][index] = \
                             self._expand_var(var, value, item)
                 else:
-                    lgr.debug('Limor - isinstance not in dict, list, str')
+                    lgr.debug('Limor - isinstance not in dict, list, str. Type: {}'.format(type(obj)))
         return attributes
 
     def _expand_var(self, variable, value, in_string):

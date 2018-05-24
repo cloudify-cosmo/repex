@@ -304,10 +304,12 @@ def handle_path(path_dict, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
-    lgr.debug('Limor - variables,path_dict: {0}:{1}'.format(variables, path_dict))
+    lgr.debug('Limor - variables,: {0}'.format(variables))
+    lgr.debug('Limor - path_dict: {0}'.format( path_dict))
     if variables:
         var_expander = VarHandler(verbose)
         path_dict = var_expander.expand(variables, path_dict)
+        lgr.debug('Limor - path_dict: {0}'.format( path_dict))
     path_dict['base_directory'] = path_dict.get('base_directory', '')
     lgr.debug('path to process: {0}'.format(
         os.path.join(path_dict['base_directory'], path_dict['path'])))

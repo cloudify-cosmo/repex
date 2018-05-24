@@ -180,23 +180,29 @@ class VarHandler():
         :param dict attributes: dict of attributes as shown above.
         """
         lgr.debug('Expanding variables...')
+        lgr.debug('Limor - repex_vars: {0}'.format(repex_vars))
         for var, value in repex_vars.items():
             for attribute in attributes.keys():
                 obj = attributes[attribute]
                 if isinstance(obj, str):
+                    lgr.debug('Limor - isinstance=str')
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined
                     attributes[attribute] = \
                         self._expand_var(var, value, obj)
                 elif isinstance(obj, dict):
+                    lgr.debug('Limor - isinstance=dict')
                     for k, v in obj.items():
                         attributes[attribute][k] = \
                             self._expand_var(var, value, v)
                 elif isinstance(obj, list):
+                    lgr.debug('Limor - isinstance=list')
                     for item in obj:
                         index = obj.index(item)
                         attributes[attribute][index] = \
                             self._expand_var(var, value, item)
+                else:
+                    lgr.debug('Limor - isinstance not in dict, list, str')
         return attributes
 
     def _expand_var(self, variable, value, in_string):
@@ -296,6 +302,7 @@ def handle_path(path_dict, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
+    lgr.debug('Limor - variables,path_dict: {0}:{1}'.format(variables, path_dict))
     if variables:
         var_expander = VarHandler(verbose)
         path_dict = var_expander.expand(variables, path_dict)

@@ -179,6 +179,8 @@ class VarHandler():
         :param dict vars: dict of variables
         :param dict attributes: dict of attributes as shown above.
         """
+        lgr.debug('Limor - type(repex_vars),: {0}'.format(type(repex_vars)))
+        lgr.debug('Limor - type(attributes): {0}'.format(type(attributes)))
         lgr.debug('Expanding variables...')
         lgr.debug('Limor - repex_vars: {0}'.format(repex_vars))
         for var, value in repex_vars.items():
@@ -304,11 +306,13 @@ def handle_path(path_dict, variables=None, verbose=False):
     """
     _set_global_verbosity_level(verbose)
     variables = variables if variables else {}
-    lgr.debug('Limor - type(variables),: {0}'.format(type(variables)))
-    lgr.debug('Limor - path_dict: {0}'.format( path_dict))
-    lgr.debug('Limor - type(path_dict): {0}'.format(type(path_dict)))
+    # lgr.debug('Limor - type(variables),: {0}'.format(type(variables)))
+    # lgr.debug('Limor - path_dict: {0}'.format( path_dict))
+    # lgr.debug('Limor - type(path_dict): {0}'.format(type(path_dict)))
     if variables:
         var_expander = VarHandler(verbose)
+        lgr.debug('Limor - type(variables),: {0}'.format(type(variables)))
+        lgr.debug('Limor - type(path_dict): {0}'.format(type(path_dict)))
         path_dict = var_expander.expand(variables, path_dict)
         lgr.debug('Limor - path_dict: {0}'.format( path_dict))
     path_dict['base_directory'] = path_dict.get('base_directory', '')

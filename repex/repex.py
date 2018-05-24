@@ -182,7 +182,9 @@ class VarHandler():
         lgr.debug('Expanding variables...')
         lgr.debug('Limor - repex_vars: {0}'.format(repex_vars))
         for var, value in repex_vars.items():
+            lgr.debug('Limor - var, value: {0},{1}'.format(var, value))
             for attribute in attributes.keys():
+                lgr.debug('Limor - attributes[attribute]: {0}'.format(attributes[attribute]))
                 obj = attributes[attribute]
                 if isinstance(obj, str):
                     lgr.debug('Limor - isinstance=str')

@@ -183,7 +183,7 @@ class VarHandler():
         for var, value in repex_vars.items():
             for attribute in attributes.keys():
                 obj = attributes[attribute]
-                if isinstance(obj, str):
+                if isinstance(obj, basestring):
                     # TODO: Handle cases where var is referenced
                     # TODO: but not defined
                     attributes[attribute] = \

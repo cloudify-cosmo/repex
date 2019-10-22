@@ -24,7 +24,7 @@ setup(
     entry_points={'console_scripts': ['rpx = repex:main']},
     install_requires=[
         "click==6.7",
-        "pyyaml==3.12",
+        "pyyaml==5.1",
         "jsonschema==2.5.1"
     ],
     classifiers=[

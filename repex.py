@@ -297,7 +297,7 @@ class _VariablesHandler(object):
         return '{{ ' + '.{0}'.format(variable) + ' }}'
 
     def _get_instances(self, string):
-        return re.findall(self._variable_string_expression, string)
+        return re.findall(self._variable_string_expression, str(string))
 
     def _expand_var(self, in_string, available_variables):
         """Expand variable to its corresponding value in_string

@@ -12,7 +12,7 @@ def read(*parts):
 
 setup(
     name='repex',
-    version="1.2.3",
+    version="1.3.0",
     url='https://github.com/cloudify-cosmo/repex',
     author='Gigaspaces',
     author_email='cosmo-admin@gigaspaces.com',
@@ -23,20 +23,14 @@ setup(
     py_modules=['repex'],
     entry_points={'console_scripts': ['rpx = repex:main']},
     install_requires=[
-        "click==6.7",
-        "pyyaml==3.12",
-        "jsonschema==2.5.1"
+        "click==8.1.2",
+        "pyyaml==5.4.1",
+        "jsonschema==4.16.0"
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.10',
         'Natural Language :: English',
         'Environment :: Console',
         'Intended Audience :: Developers',

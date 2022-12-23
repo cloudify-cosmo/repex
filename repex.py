@@ -654,7 +654,7 @@ def _validate_config_schema(config):
             'variables': {'type': 'object'},
             'paths': {
                 'type': 'array',
-                'items': [
+                'prefixItems': [
                     {
                         'type': 'object',
                         'properties': {

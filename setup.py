@@ -14,7 +14,7 @@ setup(
     name='repex',
     version="1.3.1",
     url='https://github.com/cloudify-cosmo/repex',
-    author='Gigaspaces',
+    author='Cloudify',
     author_email='cosmo-admin@gigaspaces.com',
     license='LICENSE',
     platforms='All',
